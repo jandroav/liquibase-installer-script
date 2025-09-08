@@ -27,6 +27,9 @@ curl -fsSL https://get.liquibase.com | bash
 # Install latest version (default)
 curl -fsSL https://get.liquibase.com | bash
 
+# Local testing
+curl -fsSL https://raw.githubusercontent.com/jandroav/liquibase-installer-script/refs/heads/main/install.sh | bash
+
 # Or using wget
 wget -qO- https://get.liquibase.com | bash
 ```
