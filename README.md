@@ -1,8 +1,8 @@
-# Liquibase Universal Installer
+# 🚀 Liquibase Universal Installer
 
 A smart, universal installer script for [Liquibase](https://www.liquibase.com/) that automatically detects your platform and chooses the most appropriate installation method.
 
-## Quick Start
+## ⚡ Quick Start
 
 Install Liquibase with a single command:
 
@@ -10,7 +10,7 @@ Install Liquibase with a single command:
 curl -fsSL https://get.liquibase.com | bash
 ```
 
-## Features
+## ✨ Features
 
 - 🔍 **Smart Detection**: Automatically detects your OS, architecture, and available package managers
 - 📦 **Multiple Methods**: Supports Homebrew, APT, YUM, DNF, SDKMAN, Chocolatey, and direct downloads
@@ -19,9 +19,9 @@ curl -fsSL https://get.liquibase.com | bash
 - 🔄 **Cross-Platform**: Works on Linux, macOS, and Windows (via WSL/Git Bash)
 - 🧪 **Testing**: Built-in dry-run mode for testing
 
-## Usage
+## 📖 Usage
 
-### Basic Installation
+### 🎯 Basic Installation
 
 ```bash
 # Install latest version (default)
@@ -31,7 +31,7 @@ curl -fsSL https://get.liquibase.com | bash
 wget -qO- https://get.liquibase.com | bash
 ```
 
-### Version Selection
+### 🏷️ Version Selection
 
 ```bash
 # Install latest version (default)
@@ -44,7 +44,7 @@ curl -fsSL https://get.liquibase.com | bash -s latest
 curl -fsSL https://get.liquibase.com | bash -s 4.33.0
 ```
 
-### Options
+### ⚙️ Options
 
 ```bash
 # Verbose output
@@ -57,7 +57,7 @@ curl -fsSL https://get.liquibase.com | DRY_RUN=true bash
 curl -fsSL https://get.liquibase.com | VERBOSE=true DRY_RUN=true bash -s 4.33.0
 ```
 
-### Local Usage
+### 💻 Local Usage
 
 If you have the script locally:
 
@@ -75,11 +75,11 @@ chmod +x install.sh
 VERBOSE=true DRY_RUN=true ./install.sh latest
 ```
 
-## Installation Methods
+## 📦 Installation Methods
 
 The installer tries installation methods in this order of preference:
 
-### 1. Package Managers (Preferred)
+### 1️⃣ Package Managers (Preferred)
 
 - **macOS**: [Homebrew](https://brew.sh/) (`brew install liquibase`)
 - **Ubuntu/Debian**: APT (`sudo apt-get install liquibase`)
@@ -87,7 +87,7 @@ The installer tries installation methods in this order of preference:
 - **Cross-platform**: [SDKMAN](https://sdkman.io/) (`sdk install liquibase`)
 - **Windows**: [Chocolatey](https://chocolatey.org/) (`choco install liquibase`)
 
-### 2. Direct Download (Fallback)
+### 2️⃣ Direct Download (Fallback)
 
 If no package managers are available, the installer downloads the appropriate archive:
 
@@ -99,19 +99,19 @@ Direct downloads include:
 - ✅ Automatic PATH configuration
 - ✅ Shell integration setup
 
-## Requirements
+## 📋 Requirements
 
-### Minimum Requirements
+### ✅ Minimum Requirements
 
 - **curl** or **wget** (for downloading)
 - **Bash** 3.0+ (most systems have this)
 
-### Optional Dependencies
+### 🔧 Optional Dependencies
 
 - **jq** - For faster JSON parsing (falls back to sed if unavailable)
 - **sha256sum** or **shasum** - For checksum verification
 
-### Supported Platforms
+### 🌐 Supported Platforms
 
 | Platform | Architecture | Status |
 |----------|-------------|---------|
@@ -121,9 +121,9 @@ Direct downloads include:
 | macOS | ARM64 (Apple Silicon) | ✅ Supported |
 | Windows | x64 | ✅ Supported (via WSL/Git Bash) |
 
-## Command Reference
+## 📚 Command Reference
 
-### Options
+### 🎛️ Options
 
 | Option | Environment Variable | Description |
 |--------|---------------------|-------------|
@@ -131,16 +131,16 @@ Direct downloads include:
 | `--dry-run` | `DRY_RUN=true` | Show what would be installed without installing |
 | `--help`, `-h` | - | Show help message |
 
-### Version Arguments
+### 🏷️ Version Arguments
 
 | Argument | Description | Example |
 |----------|-------------|---------|
 | `latest` | Latest release (default) | `./install.sh latest` |
 | `X.Y.Z` | Specific version | `./install.sh 4.33.0` |
 
-## Examples
+## 🛠️ Examples
 
-### Development & Testing
+### 🧪 Development & Testing
 
 ```bash
 # Test installation without actually installing
@@ -153,7 +153,7 @@ VERBOSE=true ./install.sh --dry-run
 ./install.sh --dry-run 4.28.0
 ```
 
-### Production Deployment
+### 🚀 Production Deployment
 
 ```bash
 # Silent installation for automation
@@ -172,11 +172,11 @@ else
 fi
 ```
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
-### Common Issues
+### ⚠️ Common Issues
 
-#### Installation Fails
+#### 💥 Installation Fails
 
 ```bash
 # Try with verbose output to see details
@@ -186,14 +186,14 @@ VERBOSE=true ./install.sh
 command -v curl || command -v wget
 ```
 
-#### Permission Denied
+#### 🔒 Permission Denied
 
 ```bash
 # Install to user directory instead of system-wide
 # The installer automatically falls back to ~/.local if /usr/local is not writable
 ```
 
-#### Command Not Found After Installation
+#### ❓ Command Not Found After Installation
 
 ```bash
 # Restart terminal or source profile
@@ -205,7 +205,7 @@ source ~/.zshrc
 export PATH="/usr/local/bin:$PATH"
 ```
 
-#### Checksum Verification Failed
+#### 🔐 Checksum Verification Failed
 
 ```bash
 # Try again (might be a temporary issue)
@@ -215,13 +215,13 @@ export PATH="/usr/local/bin:$PATH"
 # The installer will warn but continue if sha256sum/shasum is not available
 ```
 
-### Getting Help
+### 📞 Getting Help
 
 1. **Check verbose output**: Run with `--verbose` to see detailed execution
 2. **Try dry run**: Use `--dry-run` to see what would be installed
 3. **Manual installation**: Fall back to [official Liquibase installation](https://www.liquibase.com/download)
 
-### Debug Information
+### 🐛 Debug Information
 
 To report issues, please include:
 
@@ -236,16 +236,16 @@ command -v curl wget jq sha256sum shasum
 VERBOSE=true ./install.sh --dry-run 2>&1
 ```
 
-## Security
+## 🔐 Security
 
-### Verification
+### ✅ Verification
 
 - All downloads use HTTPS
 - Direct downloads verify SHA256 checksums
 - No arbitrary code execution from user input
 - Version strings are validated before use
 
-### Best Practices
+### 🛡️ Best Practices
 
 ```bash
 # Always verify the script source before piping to bash
@@ -258,9 +258,9 @@ curl -fsSL https://get.liquibase.com | bash -s 4.33.0
 curl -fsSL https://get.liquibase.com | DRY_RUN=true bash
 ```
 
-## Development
+## 🔧 Development
 
-### Testing the Script
+### 🧪 Testing the Script
 
 ```bash
 # Test basic functionality
@@ -276,18 +276,18 @@ VERBOSE=true ./install.sh --dry-run
 ./install.sh invalid.version
 ```
 
-### Contributing
+### 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Test thoroughly on multiple platforms
 4. Submit a pull request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 - Inspired by installation scripts from [Claude Code](https://claude.ai/install.sh)
 - Built for the [Liquibase](https://www.liquibase.com/) community
