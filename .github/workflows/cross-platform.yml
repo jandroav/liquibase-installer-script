@@ -86,9 +86,25 @@ jobs:
         shell: bash
         run: |
           echo "Testing actual OSS installation..."
-          ./install.sh latest oss
+          VERBOSE=true ./install.sh latest oss
           
-          # Verify installation
+          # Debug: Show what files were actually created
+          echo "Debug: Checking installation files..."
+          echo "HOME directory: $HOME"
+          if [ -d "$HOME/.local" ]; then
+            echo "Contents of $HOME/.local:"
+            ls -la "$HOME/.local"
+            if [ -d "$HOME/.local/bin" ]; then
+              echo "Contents of $HOME/.local/bin:"
+              ls -la "$HOME/.local/bin"
+            fi
+            if [ -d "$HOME/.local/lib" ]; then
+              echo "Contents of $HOME/.local/lib:"
+              ls -la "$HOME/.local/lib"
+            fi
+          fi
+          
+          # Verify installation  
           if command -v liquibase >/dev/null 2>&1; then
             echo "✅ Liquibase installed successfully"
             liquibase --version
