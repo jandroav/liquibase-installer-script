@@ -737,7 +737,12 @@ verify_installation() {
                 
                 log_verbose "Version command exit code: $exit_code"
                 if [ $exit_code -eq 0 ]; then
-                    installed_version=$(echo "$version_output" | head -1)
+                    # Extract version from output, filtering out banners and empty lines
+                    installed_version=$(echo "$version_output" | grep -E "Liquibase.*([0-9]+\.[0-9]+\.[0-9]+)" | head -1)
+                    if [ -z "$installed_version" ]; then
+                        # Fallback: use first non-empty line if version pattern not found
+                        installed_version=$(echo "$version_output" | grep -v '^[[:space:]]*$' | head -1)
+                    fi
                     log_success "Liquibase installed successfully at: $location"
                     log_success "Version: $installed_version"
                     log_info "To use liquibase command globally, restart your terminal or run:"
