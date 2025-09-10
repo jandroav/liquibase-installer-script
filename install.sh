@@ -247,8 +247,13 @@ detect_platform() {
             ARCH="arm64"
             log_verbose "Detected ARM64 architecture"
             ;;
+        i386|i686)
+            ARCH="x64"  # Treat 32-bit as x64 since Liquibase is Java-based
+            log_verbose "Detected 32-bit architecture, using x64 archives"
+            ;;
         *) 
             log_error "Unsupported architecture: $(uname -m)"
+            log_error "Please report this issue with your system details"
             exit 1
             ;;
     esac
@@ -427,13 +432,29 @@ install_liquibase() {
     
     # Find the extracted directory
     local liquibase_dir
-    liquibase_dir=$(find "$extract_dir" -maxdepth 1 -type d -name "*liquibase*" | head -1)
+    
+    # Try to find directory containing liquibase executable
+    liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f -executable | head -1 | xargs dirname 2>/dev/null)
+    
+    # If that fails, try to find any directory with "liquibase" in the name
+    if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
+        liquibase_dir=$(find "$extract_dir" -maxdepth 2 -type d -name "*liquibase*" | head -1)
+    fi
+    
+    # If that fails, try the first subdirectory
+    if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
+        liquibase_dir=$(find "$extract_dir" -maxdepth 1 -type d ! -name "." ! -name ".." | head -1)
+    fi
     
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
         log_error "Failed to find extracted Liquibase directory"
+        log_error "Contents of extract directory:"
+        ls -la "$extract_dir" >&2 || true
         rm -rf "$temp_dir"
         return 1
     fi
+    
+    log_verbose "Found Liquibase directory: $liquibase_dir"
     
     # Install Liquibase
     local target_dir="$install_dir/lib/liquibase"
