@@ -731,7 +731,6 @@ verify_installation() {
                 # Try to run version command with detailed error output
                 local installed_version
                 local version_output
-                local version_error
                 version_output=$("$location" --version 2>&1) 
                 local exit_code=$?
                 
