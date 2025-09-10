@@ -3,10 +3,11 @@
 set -e
 
 # Liquibase Universal Installer Script
-# Install Liquibase with automatic platform detection
-# Usage: curl -fsSL https://get.liquibase.com | bash [stable|latest|VERSION]
+# Install Liquibase OSS or Secure with automatic platform detection
+# Usage: curl -fsSL https://get.liquibase.com | bash [latest|VERSION] [oss|secure]
 
 VERSION_ARG=""
+EDITION_ARG=""
 VERBOSE="${VERBOSE:-false}"
 DRY_RUN="${DRY_RUN:-false}"
 
@@ -50,6 +51,12 @@ parse_args() {
                 fi
                 shift
                 ;;
+            oss|secure)
+                if [ -z "$EDITION_ARG" ]; then
+                    EDITION_ARG="$1"
+                fi
+                shift
+                ;;
             --verbose|-v)
                 VERBOSE="true"
                 shift
@@ -70,7 +77,7 @@ parse_args() {
                 ;;
             *)
                 log_error "Unknown argument: $1"
-                log_error "For version numbers, use format X.Y.Z (e.g., 4.33.0)"
+                log_error "Valid arguments: latest, X.Y.Z (e.g., 4.33.0), oss, secure"
                 show_help
                 exit 1
                 ;;
@@ -83,7 +90,7 @@ show_help() {
 Liquibase Universal Installer
 
 USAGE:
-    curl -fsSL https://get.liquibase.com | bash [OPTIONS] [VERSION]
+    curl -fsSL https://get.liquibase.com | bash [OPTIONS] [VERSION] [EDITION]
 
 OPTIONS:
     --verbose, -v    Enable verbose output
@@ -92,17 +99,27 @@ OPTIONS:
 
 VERSION:
     latest           Install latest version (default)
-    X.Y.Z            Install specific version (e.g., 4.33.0)
+    X.Y.Z            Install specific version (e.g., 4.33.0, 5.0.0)
+
+EDITION:
+    oss              Install Liquibase Open Source (default)
+    secure           Install Liquibase Secure (5.0.0+) or Pro (4.32.0-4.33.0)
 
 EXAMPLES:
-    # Install latest version
+    # Install latest OSS version
     curl -fsSL https://get.liquibase.com | bash
 
-    # Install specific version
-    curl -fsSL https://get.liquibase.com | bash -s 4.33.0
+    # Install latest Secure version
+    curl -fsSL https://get.liquibase.com | bash -s latest secure
+
+    # Install specific OSS version
+    curl -fsSL https://get.liquibase.com | bash -s 4.33.0 oss
+
+    # Install specific Secure version
+    curl -fsSL https://get.liquibase.com | bash -s 5.0.0 secure
 
     # Install with verbose output
-    curl -fsSL https://get.liquibase.com | VERBOSE=true bash
+    curl -fsSL https://get.liquibase.com | VERBOSE=true bash -s latest secure
 
 EOF
 }
@@ -237,46 +254,22 @@ detect_platform() {
     log_verbose "Platform: $PLATFORM"
 }
 
-# Detect available package managers
-detect_package_managers() {
-    log_verbose "Detecting available package managers..."
+# Get archive filename for the specified version and edition
+get_archive_filename() {
+    local version="$1"
+    local edition="$2"
     
-    PACKAGE_MANAGERS=()
-    
-    if command -v brew >/dev/null 2>&1; then
-        PACKAGE_MANAGERS+=("brew")
-        log_verbose "Found Homebrew"
-    fi
-    
-    if command -v apt-get >/dev/null 2>&1; then
-        PACKAGE_MANAGERS+=("apt")
-        log_verbose "Found APT"
-    fi
-    
-    if command -v yum >/dev/null 2>&1; then
-        PACKAGE_MANAGERS+=("yum")
-        log_verbose "Found YUM"
-    fi
-    
-    if command -v dnf >/dev/null 2>&1; then
-        PACKAGE_MANAGERS+=("dnf")
-        log_verbose "Found DNF"
-    fi
-    
-    if command -v sdk >/dev/null 2>&1; then
-        PACKAGE_MANAGERS+=("sdkman")
-        log_verbose "Found SDKMAN"
-    fi
-    
-    if command -v choco >/dev/null 2>&1; then
-        PACKAGE_MANAGERS+=("choco")
-        log_verbose "Found Chocolatey"
-    fi
-    
-    if [ ${#PACKAGE_MANAGERS[@]} -eq 0 ]; then
-        log_verbose "No package managers found, will use direct download"
+    if [ "$edition" = "oss" ]; then
+        echo "liquibase-${version}.tar.gz"
+    elif [ "$edition" = "secure" ]; then
+        if is_version_5_or_newer "$version"; then
+            echo "liquibase-secure-${version}.tar.gz"
+        else
+            echo "liquibase-pro-${version}.tar.gz"
+        fi
     else
-        log_verbose "Available package managers: ${PACKAGE_MANAGERS[*]}"
+        log_error "Unknown edition: $edition"
+        return 1
     fi
 }
 
@@ -309,77 +302,174 @@ get_latest_version() {
     echo "$version"
 }
 
+# Determine if version is 5.0.0 or newer for secure edition naming
+is_version_5_or_newer() {
+    local version="$1"
+    local major
+    major=$(echo "$version" | cut -d. -f1)
+    
+    if [ "$major" -ge 5 ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Get download URL for the specified version and edition
+get_download_url() {
+    local version="$1"
+    local edition="$2"
+    
+    if [ "$edition" = "oss" ]; then
+        # OSS versions are always from GitHub releases
+        echo "https://github.com/liquibase/liquibase/releases/download/v${version}/liquibase-${version}.tar.gz"
+    elif [ "$edition" = "secure" ]; then
+        # Secure/Pro versions depend on version number
+        if is_version_5_or_newer "$version"; then
+            # 5.0.0+ uses 'secure' in the URL
+            echo "https://repo.liquibase.com/releases/secure/${version}/liquibase-secure-${version}.tar.gz"
+        else
+            # 4.32.0-4.33.0 uses 'pro' in the URL
+            echo "https://repo.liquibase.com/releases/pro/${version}/liquibase-pro-${version}.tar.gz"
+        fi
+    else
+        log_error "Unknown edition: $edition"
+        return 1
+    fi
+}
+
 # Validate that a specific version exists
 validate_version_exists() {
     local version="$1"
-    log_verbose "Validating version $version exists..."
+    local edition="$2"
+    log_verbose "Validating $edition version $version exists..."
     
-    local api_response
-    api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/tags/v$version" 2>/dev/null)
-    
-    if [ $? -ne 0 ]; then
-        log_error "Version $version not found in GitHub releases"
-        return 1
+    if [ "$edition" = "oss" ]; then
+        # For OSS, check GitHub releases
+        local api_response
+        api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/tags/v$version" 2>/dev/null)
+        
+        if [ $? -ne 0 ]; then
+            log_error "OSS version $version not found in GitHub releases"
+            return 1
+        fi
+    elif [ "$edition" = "secure" ]; then
+        # For secure editions, we'll trust the version format is correct
+        # since we can't easily check repo.liquibase.com without authentication
+        log_verbose "Assuming secure version $version exists (cannot validate without auth)"
     fi
     
     log_verbose "Version $version validated successfully"
     return 0
 }
 
-# Install via package manager
-install_via_package_manager() {
-    local pm="$1"
+# Install Liquibase via direct download
+install_liquibase() {
+    local version="$1"
+    local edition="$2"
     
-    log_info "Installing Liquibase via $pm..."
+    log_info "Installing Liquibase $edition $version via direct download..."
+    
+    # Get download URL and filename
+    local download_url
+    local archive_name
+    download_url=$(get_download_url "$version" "$edition")
+    archive_name=$(get_archive_filename "$version" "$edition")
+    
+    if [ -z "$download_url" ] || [ -z "$archive_name" ]; then
+        log_error "Failed to determine download URL or filename"
+        return 1
+    fi
+    
+    log_verbose "Download URL: $download_url"
+    log_verbose "Archive name: $archive_name"
     
     if [ "$DRY_RUN" = "true" ]; then
-        case "$pm" in
-            brew)
-                log_info "[DRY RUN] Would run: brew install liquibase"
-                ;;
-            apt)
-                log_info "[DRY RUN] Would run: sudo apt-get update && sudo apt-get install -y liquibase"
-                ;;
-            yum)
-                log_info "[DRY RUN] Would run: sudo yum install -y liquibase"
-                ;;
-            dnf)
-                log_info "[DRY RUN] Would run: sudo dnf install -y liquibase"
-                ;;
-            sdkman)
-                log_info "[DRY RUN] Would run: sdk install liquibase"
-                ;;
-            choco)
-                log_info "[DRY RUN] Would run: choco install liquibase"
-                ;;
-        esac
+        log_info "[DRY RUN] Would download: $download_url"
+        log_info "[DRY RUN] Would extract to: /usr/local (or ~/.local)"
         return 0
     fi
     
-    case "$pm" in
-        brew)
-            brew install liquibase
-            ;;
-        apt)
-            sudo apt-get update && sudo apt-get install -y liquibase
-            ;;
-        yum)
-            sudo yum install -y liquibase
-            ;;
-        dnf)
-            sudo dnf install -y liquibase
-            ;;
-        sdkman)
-            sdk install liquibase
-            ;;
-        choco)
-            choco install liquibase
-            ;;
-        *)
-            log_error "Unsupported package manager: $pm"
-            return 1
-            ;;
-    esac
+    # Create temporary directory
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    local archive_path="$temp_dir/$archive_name"
+    
+    # Download the archive
+    log_info "Downloading $archive_name..."
+    download_and_verify "$download_url" "$archive_name" "" "$archive_path"
+    
+    if [ $? -ne 0 ]; then
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # Determine installation directory
+    local install_dir
+    if [ -w "/usr/local/bin" ] || [ "$(id -u)" -eq 0 ]; then
+        install_dir="/usr/local"
+    else
+        install_dir="$HOME/.local"
+        mkdir -p "$install_dir/bin"
+    fi
+    
+    log_info "Installing to $install_dir..."
+    
+    # Extract the archive
+    local extract_dir="$temp_dir/extract"
+    mkdir -p "$extract_dir"
+    
+    tar -xzf "$archive_path" -C "$extract_dir"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Failed to extract $archive_name"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # Find the extracted directory
+    local liquibase_dir
+    liquibase_dir=$(find "$extract_dir" -maxdepth 1 -type d -name "*liquibase*" | head -1)
+    
+    if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
+        log_error "Failed to find extracted Liquibase directory"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # Install Liquibase
+    local target_dir="$install_dir/lib/liquibase"
+    
+    # Remove existing installation
+    if [ -d "$target_dir" ]; then
+        log_verbose "Removing existing installation at $target_dir"
+        rm -rf "$target_dir"
+    fi
+    
+    # Copy Liquibase
+    mkdir -p "$(dirname "$target_dir")"
+    cp -r "$liquibase_dir" "$target_dir"
+    
+    # Create symlink in bin directory
+    local bin_link="$install_dir/bin/liquibase"
+    if [ -L "$bin_link" ] || [ -f "$bin_link" ]; then
+        rm -f "$bin_link"
+    fi
+    
+    ln -s "$target_dir/liquibase" "$bin_link"
+    chmod +x "$bin_link"
+    
+    # Clean up
+    rm -rf "$temp_dir"
+    
+    log_success "Liquibase $edition $version installed to $target_dir"
+    
+    # Add to PATH if necessary
+    if ! echo "$PATH" | grep -q "$install_dir/bin"; then
+        add_to_path "$install_dir/bin"
+    fi
+    
+    return 0
 }
 
 # Download and verify file
@@ -426,140 +516,7 @@ download_and_verify() {
     return 0
 }
 
-# Install via direct download
-install_via_direct_download() {
-    local version="$1"
-    
-    log_info "Installing Liquibase $version via direct download..."
-    
-    # Determine the appropriate archive format
-    local archive_format
-    local archive_name
-    if [ "$OS" = "windows" ]; then
-        archive_format="zip"
-        archive_name="liquibase-${version}.zip"
-    else
-        archive_format="tar.gz"
-        archive_name="liquibase-${version}.tar.gz"
-    fi
-    
-    # Get release information
-    local api_response
-    api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/tags/v$version")
-    
-    if [ $? -ne 0 ]; then
-        log_error "Failed to fetch release information for version $version"
-        return 1
-    fi
-    
-    # Extract download URL and checksum
-    local asset_info
-    asset_info=$(extract_asset_info "$api_response" "$archive_name")
-    
-    if [ -z "$asset_info" ]; then
-        log_error "Failed to find $archive_name in release assets"
-        return 1
-    fi
-    
-    local download_url
-    download_url=$(echo "$asset_info" | head -1)
-    
-    if [ -z "$download_url" ]; then
-        log_error "Failed to extract download URL"
-        return 1
-    fi
-    
-    # Create temporary directory
-    local temp_dir
-    temp_dir=$(mktemp -d)
-    local archive_path="$temp_dir/$archive_name"
-    
-    if [ "$DRY_RUN" = "true" ]; then
-        log_info "[DRY RUN] Would download: $download_url"
-        log_info "[DRY RUN] Would extract to: /usr/local/bin (or ~/.local/bin)"
-        rm -rf "$temp_dir"
-        return 0
-    fi
-    
-    # Download the archive
-    download_and_verify "$download_url" "$archive_name" "" "$archive_path"
-    
-    if [ $? -ne 0 ]; then
-        rm -rf "$temp_dir"
-        return 1
-    fi
-    
-    # Determine installation directory
-    local install_dir
-    if [ -w "/usr/local/bin" ] || [ "$(id -u)" -eq 0 ]; then
-        install_dir="/usr/local"
-    else
-        install_dir="$HOME/.local"
-        mkdir -p "$install_dir/bin"
-    fi
-    
-    log_info "Installing to $install_dir..."
-    
-    # Extract the archive
-    local extract_dir="$temp_dir/extract"
-    mkdir -p "$extract_dir"
-    
-    if [ "$archive_format" = "tar.gz" ]; then
-        tar -xzf "$archive_path" -C "$extract_dir"
-    else
-        unzip -q "$archive_path" -d "$extract_dir"
-    fi
-    
-    if [ $? -ne 0 ]; then
-        log_error "Failed to extract $archive_name"
-        rm -rf "$temp_dir"
-        return 1
-    fi
-    
-    # Find the extracted directory (it should be something like liquibase-X.Y.Z)
-    local liquibase_dir
-    liquibase_dir=$(find "$extract_dir" -maxdepth 1 -type d -name "liquibase*" | head -1)
-    
-    if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
-        log_error "Failed to find extracted Liquibase directory"
-        rm -rf "$temp_dir"
-        return 1
-    fi
-    
-    # Install Liquibase
-    local target_dir="$install_dir/lib/liquibase"
-    
-    # Remove existing installation
-    if [ -d "$target_dir" ]; then
-        log_verbose "Removing existing installation at $target_dir"
-        rm -rf "$target_dir"
-    fi
-    
-    # Copy Liquibase
-    mkdir -p "$(dirname "$target_dir")"
-    cp -r "$liquibase_dir" "$target_dir"
-    
-    # Create symlink in bin directory
-    local bin_link="$install_dir/bin/liquibase"
-    if [ -L "$bin_link" ] || [ -f "$bin_link" ]; then
-        rm -f "$bin_link"
-    fi
-    
-    ln -s "$target_dir/liquibase" "$bin_link"
-    chmod +x "$bin_link"
-    
-    # Clean up
-    rm -rf "$temp_dir"
-    
-    log_success "Liquibase installed to $target_dir"
-    
-    # Add to PATH if necessary
-    if ! echo "$PATH" | grep -q "$install_dir/bin"; then
-        add_to_path "$install_dir/bin"
-    fi
-}
-
-# Add directory to PATH
+# Legacy function removed - now using install_liquibase()
 add_to_path() {
     local dir="$1"
     
@@ -633,12 +590,17 @@ main() {
     # Parse arguments (if any were passed to the script directly)
     parse_args "$@"
     
-    # Set default version
+    # Set default version and edition
     if [ -z "$VERSION_ARG" ]; then
         VERSION_ARG="latest"
     fi
     
+    if [ -z "$EDITION_ARG" ]; then
+        EDITION_ARG="oss"
+    fi
+    
     log_verbose "Version argument: $VERSION_ARG"
+    log_verbose "Edition argument: $EDITION_ARG"
     log_verbose "Verbose: $VERBOSE"
     log_verbose "Dry run: $DRY_RUN"
     
@@ -661,78 +623,17 @@ main() {
             exit 1
         fi
         
-        validate_version_exists "$VERSION"
+        validate_version_exists "$VERSION" "$EDITION_ARG"
         if [ $? -ne 0 ]; then
             exit 1
         fi
     fi
     
-    log_info "Installing Liquibase version: $VERSION"
+    log_info "Installing Liquibase $EDITION_ARG $VERSION"
     
-    # Detect package managers
-    detect_package_managers
-    
-    # Choose installation method
-    local install_success=false
-    
-    # Try package managers first (in order of preference)
-    for pm in "${PACKAGE_MANAGERS[@]}"; do
-        case "$pm" in
-            brew)
-                if [ "$OS" = "darwin" ]; then
-                    log_info "Attempting installation via Homebrew..."
-                    if install_via_package_manager "$pm"; then
-                        install_success=true
-                        break
-                    else
-                        log_warn "Homebrew installation failed, trying next method..."
-                    fi
-                fi
-                ;;
-            apt|yum|dnf)
-                if [ "$OS" = "linux" ]; then
-                    log_info "Attempting installation via $pm..."
-                    if install_via_package_manager "$pm"; then
-                        install_success=true
-                        break
-                    else
-                        log_warn "$pm installation failed, trying next method..."
-                    fi
-                fi
-                ;;
-            sdkman)
-                log_info "Attempting installation via SDKMAN..."
-                if install_via_package_manager "$pm"; then
-                    install_success=true
-                    break
-                else
-                    log_warn "SDKMAN installation failed, trying next method..."
-                fi
-                ;;
-            choco)
-                if [ "$OS" = "windows" ]; then
-                    log_info "Attempting installation via Chocolatey..."
-                    if install_via_package_manager "$pm"; then
-                        install_success=true
-                        break
-                    else
-                        log_warn "Chocolatey installation failed, trying next method..."
-                    fi
-                fi
-                ;;
-        esac
-    done
-    
-    # Fall back to direct download if package managers failed
-    if [ "$install_success" = false ]; then
-        log_info "Falling back to direct download..."
-        if install_via_direct_download "$VERSION"; then
-            install_success=true
-        fi
-    fi
-    
-    if [ "$install_success" = false ]; then
-        log_error "All installation methods failed"
+    # Install Liquibase via direct download
+    if ! install_liquibase "$VERSION" "$EDITION_ARG"; then
+        log_error "Installation failed"
         exit 1
     fi
     
