@@ -6,7 +6,6 @@ tmp/
 
 # Debug files
 debug*.sh
-test*.sh
 
 # OS files
 .DS_Store
