@@ -14,17 +14,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             name: "🐧 Ubuntu"
-            shell: bash
           - os: macos-latest  
             name: "🍎 macOS"
-            shell: bash
           - os: windows-latest
             name: "🪟 Windows (Git Bash)"
-            shell: bash
 
     steps:
       - name: 📥 Checkout code
@@ -37,7 +33,7 @@ jobs:
           echo "Using Git Bash on Windows"
 
       - name: ℹ️  System Information
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           echo "🖥️  OS: $(uname -s)"
           echo "🏗️  Architecture: $(uname -m)"
@@ -49,31 +45,31 @@ jobs:
           command -v jq && echo "  ✅ jq" || echo "  ❌ jq"
 
       - name: 🧪 Test Help Command
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           chmod +x install.sh
           ./install.sh --help
 
       - name: 🌐 Test Platform Detection
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           echo "Testing platform detection..."
           DRY_RUN=true VERBOSE=true ./install.sh 2>&1 | grep "Detecting platform"
 
       - name: 📦 Test OSS Dry Run
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           echo "Testing OSS dry run..."
           DRY_RUN=true ./install.sh latest oss
 
       - name: 🏢 Test Secure Dry Run  
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           echo "Testing Secure dry run..."
           DRY_RUN=true ./install.sh 5.0.0 secure
 
       - name: ⚠️  Test Error Handling
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           echo "Testing error handling..."
           if ./install.sh invalid.version 2>&1 | grep -q "Unknown argument"; then
@@ -84,7 +80,7 @@ jobs:
           fi
 
       - name: 🚀 Test Actual Installation (OSS only)
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           echo "Testing actual OSS installation..."
           ./install.sh latest oss
