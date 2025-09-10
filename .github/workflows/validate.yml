@@ -48,17 +48,21 @@ jobs:
       - name: ⚠️ Test error handling
         run: |
           echo "::group::Error Handling Tests"
-          if ./install.sh invalid.version 2>&1 | grep -q "Unknown argument"; then
+          if ./install.sh invalid.version 2>&1 | grep -q "Unknown argument:"; then
             echo "✅ Invalid version handling works"
           else
             echo "❌ Invalid version handling failed"
+            echo "Actual output:"
+            ./install.sh invalid.version 2>&1 || true
             exit 1
           fi
           
-          if ./install.sh 4.33.0 invalid.edition 2>&1 | grep -q "Unknown argument"; then
+          if ./install.sh 4.33.0 invalid.edition 2>&1 | grep -q "Unknown argument:"; then
             echo "✅ Invalid edition handling works"
           else
             echo "❌ Invalid edition handling failed"
+            echo "Actual output:"
+            ./install.sh 4.33.0 invalid.edition 2>&1 || true
             exit 1
           fi
           echo "::endgroup::"

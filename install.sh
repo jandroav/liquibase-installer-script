@@ -225,12 +225,13 @@ detect_platform() {
             OS="linux"
             log_verbose "Detected Linux"
             ;;
-        MINGW*|MSYS*|CYGWIN*)
-            OS="windows"
-            log_verbose "Detected Windows"
+        MINGW*|MSYS*|CYGWIN*|*NT*|*_NT*)
+            OS="linux"  # Treat Windows as Linux since Liquibase is Java-based
+            log_verbose "Detected Windows ($(uname -s)) - using Linux-compatible archives"
             ;;
         *) 
             log_error "Unsupported operating system: $(uname -s)"
+            log_error "If you're using a Unix-like environment, please report this issue"
             exit 1
             ;;
     esac
