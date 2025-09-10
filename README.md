@@ -13,12 +13,12 @@ curl -fsSL https://get.liquibase.com | bash
 ## ✨ Features
 
 - 🏢 **Dual Edition Support**: Install Liquibase OSS or Secure editions
-- 🔍 **Smart Detection**: Automatically detects your OS and architecture  
-- 📥 **Native Installation**: Direct tar.gz downloads and extraction
-- 🔒 **Secure**: HTTPS downloads with SHA256 verification
+- 🔍 **Smart Detection**: Automatically detects your OS and architecture with robust fallbacks
+- 📥 **Native Installation**: Direct tar.gz downloads with intelligent extraction
+- 🔒 **Secure**: HTTPS downloads with SHA256 verification when available
 - 🎯 **Version Flexible**: Install latest or specific versions
 - 🔄 **Cross-Platform**: Works on Linux, macOS, and Windows (via WSL/Git Bash)
-- 🧪 **Testing**: Built-in dry-run mode for testing
+- 🧪 **Testing**: Built-in dry-run mode and comprehensive CI/CD validation
 
 ## 📖 Usage
 
@@ -142,13 +142,16 @@ The installer uses **native tar.gz downloads** for all installations:
 
 ### 🌐 Supported Platforms
 
-| Platform | Architecture | Status |
-|----------|-------------|---------|
-| Linux | x64 | ✅ Supported |
-| Linux | ARM64 | ✅ Supported |
-| macOS | x64 (Intel) | ✅ Supported |
-| macOS | ARM64 (Apple Silicon) | ✅ Supported |
-| Windows | x64 | ✅ Supported (via WSL/Git Bash) |
+| Platform | Architecture | Status | Notes |
+|----------|-------------|---------|--------|
+| Linux | x64 | ✅ Supported | All major distributions |
+| Linux | ARM64 | ✅ Supported | Native ARM64 support |
+| macOS | x64 (Intel) | ✅ Supported | macOS 10.13+ |
+| macOS | ARM64 (Apple Silicon) | ✅ Supported | M1/M2/M3 Macs |
+| Windows | x64 | ✅ Supported | Git Bash, WSL, MSYS2, Cygwin |
+| Windows | 32-bit | ✅ Supported | Uses Java-compatible x64 archives |
+
+**Platform Detection**: Automatically handles various system types including MINGW, MSYS2, Cygwin, and other Unix-like environments on Windows.
 
 ## 📚 Command Reference
 
@@ -256,6 +259,26 @@ export PATH="/usr/local/bin:$PATH"
 # Or skip checksum verification (not recommended)
 # The installer will warn but continue if sha256sum/shasum is not available
 ```
+
+## 🔧 Advanced Features
+
+### 🎯 Intelligent Archive Extraction
+
+The installer uses a three-tier approach to handle various Liquibase archive formats:
+
+1. **🔍 Executable Detection**: Locates the `liquibase` executable within the archive
+2. **📁 Directory Pattern Matching**: Searches for directories containing "liquibase" 
+3. **🛡️ Fallback Extraction**: Uses the first valid directory found
+
+This ensures compatibility with different Liquibase versions and archive structures.
+
+### 🌐 Robust Platform Detection
+
+Enhanced platform detection handles various environments:
+- **Windows**: MINGW, MSYS2, Cygwin, Git Bash, WSL
+- **macOS**: Intel and Apple Silicon architectures  
+- **Linux**: All major distributions and architectures
+- **Fallback**: 32-bit systems use Java-compatible x64 archives
 
 ### 📞 Getting Help
 

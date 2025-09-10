@@ -253,8 +253,11 @@ detect_platform() {
             ;;
         *) 
             log_error "Unsupported architecture: $(uname -m)"
-            log_error "Please report this issue with your system details"
-            exit 1
+            log_error "System details: OS=$(uname -s), ARCH=$(uname -m), KERNEL=$(uname -r)"
+            log_error "Please report this issue at: https://github.com/jandroav/liquibase-installer-script/issues"
+            # For now, default to x64 for unknown architectures since Liquibase is Java-based
+            ARCH="x64"
+            log_warn "Defaulting to x64 architecture for Java compatibility"
             ;;
     esac
 
@@ -411,11 +414,15 @@ install_liquibase() {
     
     # Determine installation directory
     local install_dir
-    if [ -w "/usr/local/bin" ] || [ "$(id -u)" -eq 0 ]; then
+    
+    # Check if we can install to system-wide location
+    if ([ -w "/usr/local" ] || [ "$(id -u)" -eq 0 ]) && [ -d "/usr/local" ]; then
         install_dir="/usr/local"
+        log_verbose "Installing to system-wide location: $install_dir"
     else
         install_dir="$HOME/.local"
-        mkdir -p "$install_dir/bin"
+        log_verbose "Installing to user location: $install_dir"
+        mkdir -p "$install_dir/bin" "$install_dir/lib"
     fi
     
     log_info "Installing to $install_dir..."
@@ -466,8 +473,18 @@ install_liquibase() {
     fi
     
     # Copy Liquibase
-    mkdir -p "$(dirname "$target_dir")"
-    cp -r "$liquibase_dir" "$target_dir"
+    if ! mkdir -p "$(dirname "$target_dir")"; then
+        log_error "Failed to create directory: $(dirname "$target_dir")"
+        log_error "Try running with sudo or install to user directory"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    if ! cp -r "$liquibase_dir" "$target_dir"; then
+        log_error "Failed to copy Liquibase to $target_dir"
+        rm -rf "$temp_dir"
+        return 1
+    fi
     
     # Create symlink in bin directory
     local bin_link="$install_dir/bin/liquibase"
@@ -475,8 +492,21 @@ install_liquibase() {
         rm -f "$bin_link"
     fi
     
-    ln -s "$target_dir/liquibase" "$bin_link"
-    chmod +x "$bin_link"
+    if ! mkdir -p "$install_dir/bin"; then
+        log_error "Failed to create bin directory: $install_dir/bin"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    if ! ln -s "$target_dir/liquibase" "$bin_link"; then
+        log_error "Failed to create symlink: $bin_link"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # Make sure the liquibase executable is executable
+    chmod +x "$target_dir/liquibase" 2>/dev/null || true
+    chmod +x "$bin_link" 2>/dev/null || true
     
     # Clean up
     rm -rf "$temp_dir"
@@ -588,17 +618,50 @@ verify_installation() {
         return 0
     fi
     
+    # First, try to find liquibase in current PATH
     if command -v liquibase >/dev/null 2>&1; then
         local installed_version
         installed_version=$(liquibase --version 2>/dev/null | head -1)
         log_success "Liquibase installed successfully!"
         log_success "Version: $installed_version"
         return 0
-    else
-        log_error "Liquibase command not found in PATH"
-        log_error "You may need to restart your terminal or run 'source ~/.bashrc'"
-        return 1
     fi
+    
+    # If not in PATH, check the direct installation locations
+    local install_locations=()
+    install_locations+=("/usr/local/bin/liquibase")
+    install_locations+=("$HOME/.local/bin/liquibase")
+    
+    log_verbose "Checking installation locations: ${install_locations[*]}"
+    
+    for location in "${install_locations[@]}"; do
+        log_verbose "Checking location: $location"
+        if [ -e "$location" ]; then
+            log_verbose "Found file at $location, checking if executable"
+            if [ -x "$location" ]; then
+                log_verbose "File is executable, testing version command"
+                local installed_version
+                installed_version=$("$location" --version 2>/dev/null | head -1)
+                if [ -n "$installed_version" ]; then
+                    log_success "Liquibase installed successfully at: $location"
+                    log_success "Version: $installed_version"
+                    log_info "To use liquibase command globally, restart your terminal or run:"
+                    log_info "  export PATH=\"$(dirname "$location"):\$PATH\""
+                    return 0
+                else
+                    log_verbose "Version command failed for $location"
+                fi
+            else
+                log_verbose "File exists but is not executable: $location"
+            fi
+        else
+            log_verbose "No file found at: $location"
+        fi
+    done
+    
+    log_error "Liquibase installation verification failed"
+    log_error "Could not find liquibase executable in expected locations"
+    return 1
 }
 
 # Main installation logic
