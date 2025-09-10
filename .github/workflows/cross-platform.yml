@@ -142,6 +142,57 @@ jobs:
             echo "✅ Liquibase installation verified successfully"
           fi
 
+      - name: 🏢 Test Actual Installation (Secure)
+        shell: bash
+        run: |
+          echo "Testing actual Secure installation..."
+          VERBOSE=true ./install.sh 5.0.0 secure
+          
+          # Debug: Show what files were actually created
+          echo "Debug: Checking Secure installation files..."
+          echo "HOME directory: $HOME"
+          if [ -d "$HOME/.local" ]; then
+            echo "Contents of $HOME/.local:"
+            ls -la "$HOME/.local"
+            if [ -d "$HOME/.local/bin" ]; then
+              echo "Contents of $HOME/.local/bin:"
+              ls -la "$HOME/.local/bin"
+            fi
+            if [ -d "$HOME/.local/lib" ]; then
+              echo "Contents of $HOME/.local/lib:"
+              ls -la "$HOME/.local/lib"
+            fi
+          fi
+          
+          # Verify Secure installation - check direct paths since PATH may not persist on some platforms
+          SECURE_LIQUIBASE_FOUND=false
+          
+          # First try PATH (works on most platforms)
+          if command -v liquibase >/dev/null 2>&1; then
+            echo "✅ Liquibase Secure found in PATH"
+            liquibase --version
+            SECURE_LIQUIBASE_FOUND=true
+          else
+            echo "ℹ️  Liquibase Secure not found in PATH (expected on some platforms)"
+            
+            # Try direct installation paths
+            for location in "/usr/local/bin/liquibase" "$HOME/.local/bin/liquibase"; do
+              if [ -x "$location" ]; then
+                echo "✅ Liquibase Secure found at: $location"
+                "$location" --version
+                SECURE_LIQUIBASE_FOUND=true
+                break
+              fi
+            done
+          fi
+          
+          if [ "$SECURE_LIQUIBASE_FOUND" = "false" ]; then
+            echo "❌ Liquibase Secure not found in any expected location"
+            exit 1
+          else
+            echo "✅ Liquibase Secure installation verified successfully"
+          fi
+
   test-summary:
     name: 📊 Cross-Platform Summary
     runs-on: ubuntu-latest

@@ -46,6 +46,10 @@ jobs:
           echo "::group::Secure Dry Run Test"  
           DRY_RUN=true ./install.sh 5.0.0 secure
           echo "::endgroup::"
+          
+          echo "::group::Latest Secure Dry Run Test"
+          DRY_RUN=true ./install.sh latest secure
+          echo "::endgroup::"
 
       - name: ⚠️ Test error handling
         run: |
