@@ -455,17 +455,44 @@ install_liquibase() {
     # Find the extracted directory
     local liquibase_dir
     
+    log_verbose "Looking for Liquibase directory in: $extract_dir"
+    log_verbose "Contents of extract directory:"
+    ls -la "$extract_dir" >&2 || true
+    
     # Try to find directory containing liquibase executable
-    liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f | head -1 | xargs dirname 2>/dev/null)
+    liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f -executable 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+    log_verbose "Method 1 (executable search): Found '$liquibase_dir'"
     
     # If that fails, try to find any directory with "liquibase" in the name  
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
-        liquibase_dir=$(find "$extract_dir" -maxdepth 2 -type d -name "*liquibase*" | head -1)
+        liquibase_dir=$(find "$extract_dir" -maxdepth 2 -type d -name "*liquibase*" 2>/dev/null | head -1)
+        log_verbose "Method 2 (name search): Found '$liquibase_dir'"
     fi
     
-    # If that fails, try the first subdirectory (skip . and ..)
+    # If that fails, try the first subdirectory that contains jar files or liquibase script
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
-        liquibase_dir=$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
+        for dir in "$extract_dir"/*; do
+            if [ -d "$dir" ]; then
+                log_verbose "Checking subdirectory: $dir"
+                if [ -f "$dir/liquibase" ] || [ -f "$dir/liquibase.bat" ] || ls "$dir"/*.jar >/dev/null 2>&1; then
+                    liquibase_dir="$dir"
+                    log_verbose "Method 3 (content search): Found '$liquibase_dir'"
+                    break
+                fi
+            fi
+        done
+    fi
+    
+    # Last resort: first subdirectory (but NOT the extract dir itself)
+    if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
+        liquibase_dir=$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
+        log_verbose "Method 4 (first subdir): Found '$liquibase_dir'"
+        
+        # Critical check: ensure this is not the extract directory itself
+        if [ "$liquibase_dir" = "$extract_dir" ]; then
+            log_verbose "Warning: Found directory is the extract dir itself, clearing"
+            liquibase_dir=""
+        fi
     fi
     
     # Validate that we found a proper liquibase directory
@@ -474,6 +501,8 @@ install_liquibase() {
         if ! ([ -f "$liquibase_dir/liquibase" ] || [ -f "$liquibase_dir/liquibase.bat" ] || ls "$liquibase_dir"/*.jar >/dev/null 2>&1); then
             log_verbose "Directory $liquibase_dir doesn't look like a proper Liquibase installation"
             liquibase_dir=""
+        else
+            log_verbose "Validated Liquibase directory: $liquibase_dir"
         fi
     fi
     
