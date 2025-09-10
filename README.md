@@ -1,6 +1,6 @@
 # 🚀 Liquibase Universal Installer
 
-A smart, universal installer script for [Liquibase](https://www.liquibase.com/) that automatically detects your platform and chooses the most appropriate installation method.
+A smart, universal installer script for [Liquibase](https://www.liquibase.com/) that automatically installs Liquibase OSS or Secure editions via native tar.gz downloads.
 
 ## ⚡ Quick Start
 
@@ -12,10 +12,11 @@ curl -fsSL https://get.liquibase.com | bash
 
 ## ✨ Features
 
-- 🔍 **Smart Detection**: Automatically detects your OS, architecture, and available package managers
-- 📦 **Multiple Methods**: Supports Homebrew, APT, YUM, DNF, SDKMAN, Chocolatey, and direct downloads
-- 🔒 **Secure**: Verifies SHA256 checksums for direct downloads
-- 🎯 **Flexible**: Install latest or specific versions
+- 🏢 **Dual Edition Support**: Install Liquibase OSS or Secure editions
+- 🔍 **Smart Detection**: Automatically detects your OS and architecture  
+- 📥 **Native Installation**: Direct tar.gz downloads and extraction
+- 🔒 **Secure**: HTTPS downloads with SHA256 verification
+- 🎯 **Version Flexible**: Install latest or specific versions
 - 🔄 **Cross-Platform**: Works on Linux, macOS, and Windows (via WSL/Git Bash)
 - 🧪 **Testing**: Built-in dry-run mode for testing
 
@@ -24,8 +25,11 @@ curl -fsSL https://get.liquibase.com | bash
 ### 🎯 Basic Installation
 
 ```bash
-# Install latest version (default)
+# Install latest OSS version (default)
 curl -fsSL https://get.liquibase.com | bash
+
+# Install latest Secure version
+curl -fsSL https://get.liquibase.com | bash -s latest secure
 
 # Local testing
 curl -fsSL https://raw.githubusercontent.com/jandroav/liquibase-installer-script/refs/heads/main/install.sh | bash
@@ -37,14 +41,20 @@ wget -qO- https://get.liquibase.com | bash
 ### 🏷️ Version Selection
 
 ```bash
-# Install latest version (default)
+# Install latest OSS (default)
 curl -fsSL https://get.liquibase.com | bash
 
-# Install latest version explicitly
-curl -fsSL https://get.liquibase.com | bash -s latest
+# Install latest OSS explicitly  
+curl -fsSL https://get.liquibase.com | bash -s latest oss
 
-# Install specific version
-curl -fsSL https://get.liquibase.com | bash -s 4.33.0
+# Install specific OSS version
+curl -fsSL https://get.liquibase.com | bash -s 4.33.0 oss
+
+# Install specific Secure version (5.0.0+)
+curl -fsSL https://get.liquibase.com | bash -s 5.0.0 secure
+
+# Install Pro version (4.32.0-4.33.0)
+curl -fsSL https://get.liquibase.com | bash -s 4.33.0 secure
 ```
 
 ### ⚙️ Options
@@ -54,10 +64,10 @@ curl -fsSL https://get.liquibase.com | bash -s 4.33.0
 curl -fsSL https://get.liquibase.com | VERBOSE=true bash
 
 # Dry run (see what would be installed)
-curl -fsSL https://get.liquibase.com | DRY_RUN=true bash
+curl -fsSL https://get.liquibase.com | DRY_RUN=true bash -s latest secure
 
 # Combine options
-curl -fsSL https://get.liquibase.com | VERBOSE=true DRY_RUN=true bash -s 4.33.0
+curl -fsSL https://get.liquibase.com | VERBOSE=true DRY_RUN=true bash -s 5.0.0 secure
 ```
 
 ### 💻 Local Usage
@@ -68,39 +78,55 @@ If you have the script locally:
 # Make executable
 chmod +x install.sh
 
-# Basic usage
+# Install latest OSS
 ./install.sh
 
+# Install latest Secure
+./install.sh latest secure
+
 # With options
-./install.sh --verbose --dry-run 4.33.0
+./install.sh --verbose --dry-run 5.0.0 secure
 
 # Environment variables
-VERBOSE=true DRY_RUN=true ./install.sh latest
+VERBOSE=true DRY_RUN=true ./install.sh 4.33.0 oss
 ```
 
 ## 📦 Installation Methods
 
-The installer tries installation methods in this order of preference:
+The installer uses **native tar.gz downloads** for all installations:
 
-### 1️⃣ Package Managers (Preferred)
+### 🏢 Edition Support
 
-- **macOS**: [Homebrew](https://brew.sh/) (`brew install liquibase`)
-- **Ubuntu/Debian**: APT (`sudo apt-get install liquibase`)
-- **RHEL/CentOS/Fedora**: YUM/DNF (`sudo yum/dnf install liquibase`)
-- **Cross-platform**: [SDKMAN](https://sdkman.io/) (`sdk install liquibase`)
-- **Windows**: [Chocolatey](https://chocolatey.org/) (`choco install liquibase`)
+#### **Liquibase OSS (Open Source)**
+- **Source**: GitHub Releases
+- **URL Pattern**: `https://github.com/liquibase/liquibase/releases/download/vX.Y.Z/liquibase-X.Y.Z.tar.gz`
+- **Versions**: All available versions
+- **Default**: Installed when no edition specified
 
-### 2️⃣ Direct Download (Fallback)
+#### **Liquibase Secure/Pro**  
+- **Source**: Liquibase Repository (`repo.liquibase.com`)
+- **Pro Versions (4.32.0-4.33.0)**:
+  - URL: `https://repo.liquibase.com/releases/pro/X.Y.Z/liquibase-pro-X.Y.Z.tar.gz`
+- **Secure Versions (5.0.0+)**:
+  - URL: `https://repo.liquibase.com/releases/secure/X.Y.Z/liquibase-secure-X.Y.Z.tar.gz`
 
-If no package managers are available, the installer downloads the appropriate archive:
+### 📥 Installation Process
 
-- **Linux/macOS**: Downloads `.tar.gz` and extracts to `/usr/local` or `~/.local`
-- **Windows**: Downloads `.zip` and extracts to appropriate location
+1. **Download**: Fetches appropriate tar.gz archive via HTTPS
+2. **Verify**: SHA256 checksum verification (when available)
+3. **Extract**: Extracts to `/usr/local/lib/liquibase` (or `~/.local/lib/liquibase`)
+4. **Link**: Creates symlink in `/usr/local/bin/liquibase` (or `~/.local/bin/liquibase`)
+5. **Configure**: Adds to PATH and updates shell profiles
+6. **Verify**: Tests installation with `liquibase --version`
 
-Direct downloads include:
-- ✅ SHA256 checksum verification
-- ✅ Automatic PATH configuration
-- ✅ Shell integration setup
+### 🎯 Edition Selection Guide
+
+| Use Case | Recommended Edition | Command |
+|----------|-------------------|---------|
+| **Open Source Projects** | OSS | `curl -fsSL https://get.liquibase.com \| bash` |
+| **Enterprise/Commercial** | Secure (5.0.0+) | `curl -fsSL https://get.liquibase.com \| bash -s latest secure` |
+| **Legacy Pro (4.32.0-4.33.0)** | Pro | `curl -fsSL https://get.liquibase.com \| bash -s 4.33.0 secure` |
+| **Specific OSS Version** | OSS | `curl -fsSL https://get.liquibase.com \| bash -s 4.33.0 oss` |
 
 ## 📋 Requirements
 
@@ -139,35 +165,48 @@ Direct downloads include:
 | Argument | Description | Example |
 |----------|-------------|---------|
 | `latest` | Latest release (default) | `./install.sh latest` |
-| `X.Y.Z` | Specific version | `./install.sh 4.33.0` |
+| `X.Y.Z` | Specific version | `./install.sh 4.33.0 oss` |
+
+### 🏢 Edition Arguments
+
+| Argument | Description | Example |
+|----------|-------------|---------|
+| `oss` | Liquibase Open Source (default) | `./install.sh latest oss` |
+| `secure` | Liquibase Secure (5.0.0+) or Pro (4.32.0-4.33.0) | `./install.sh 5.0.0 secure` |
 
 ## 🛠️ Examples
 
 ### 🧪 Development & Testing
 
 ```bash
-# Test installation without actually installing
-./install.sh --dry-run --verbose latest
+# Test OSS installation without actually installing
+./install.sh --dry-run --verbose latest oss
 
-# Check what package managers are available
-VERBOSE=true ./install.sh --dry-run
+# Test Secure installation with verbose output
+VERBOSE=true ./install.sh --dry-run latest secure
 
-# Test specific version
-./install.sh --dry-run 4.28.0
+# Test specific OSS version
+./install.sh --dry-run 4.33.0 oss
+
+# Test specific Secure version
+./install.sh --dry-run 5.0.0 secure
 ```
 
 ### 🚀 Production Deployment
 
 ```bash
-# Silent installation for automation
+# Silent OSS installation for automation
 curl -fsSL https://get.liquibase.com | bash
 
-# Install specific version in CI/CD
-curl -fsSL https://get.liquibase.com | bash -s 4.33.0
+# Install specific OSS version in CI/CD
+curl -fsSL https://get.liquibase.com | bash -s 4.33.0 oss
+
+# Install Secure version in CI/CD
+curl -fsSL https://get.liquibase.com | bash -s 5.0.0 secure
 
 # Install with error handling
-if curl -fsSL https://get.liquibase.com | bash; then
-    echo "Liquibase installed successfully"
+if curl -fsSL https://get.liquibase.com | bash -s latest secure; then
+    echo "Liquibase Secure installed successfully"
     liquibase --version
 else
     echo "Installation failed" >&2
@@ -269,14 +308,19 @@ curl -fsSL https://get.liquibase.com | DRY_RUN=true bash
 # Test basic functionality
 ./install.sh --help
 
-# Test version detection
-VERBOSE=true ./install.sh --dry-run
+# Test OSS version detection  
+VERBOSE=true ./install.sh --dry-run latest oss
 
-# Test specific version
-./install.sh --dry-run 4.33.0
+# Test Secure version detection
+VERBOSE=true ./install.sh --dry-run latest secure
+
+# Test specific versions
+./install.sh --dry-run 4.33.0 oss
+./install.sh --dry-run 5.0.0 secure
 
 # Test error handling
 ./install.sh invalid.version
+./install.sh 4.33.0 invalid.edition
 ```
 
 ### 🤝 Contributing
