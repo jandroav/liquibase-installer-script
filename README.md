@@ -302,7 +302,9 @@ curl -fsSL https://get.liquibase.com | DRY_RUN=true bash
 
 ## 🔧 Development
 
-### 🧪 Testing the Script
+### 🧪 Testing the Installer
+
+#### 🖥️ Local Testing
 
 ```bash
 # Test basic functionality
@@ -322,6 +324,23 @@ VERBOSE=true ./install.sh --dry-run latest secure
 ./install.sh invalid.version
 ./install.sh 4.33.0 invalid.edition
 ```
+
+#### 🚀 GitHub Actions Testing
+
+Automated testing runs on every push/PR and includes comprehensive cross-platform validation:
+
+**🔍 Script Validation** (`validate.yml`):
+- ShellCheck linting for code quality
+- Syntax validation and help functionality testing  
+- Dry run tests for OSS and Secure editions
+- Error handling validation
+
+**🌐 Cross-Platform Testing** (`cross-platform.yml`):
+- Native Ubuntu, macOS, and Windows (Git Bash) environments  
+- Real-world platform validation with actual installations
+- Complete installation verification across all supported platforms
+
+View test results at: **Actions** → **Validate Installer Script** / **Cross-Platform Testing**
 
 ### 🤝 Contributing
 

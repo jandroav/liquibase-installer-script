@@ -1,0 +1,124 @@
+name: 🌐 Cross-Platform Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test-cross-platform:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            name: "🐧 Ubuntu"
+            shell: bash
+          - os: macos-latest  
+            name: "🍎 macOS"
+            shell: bash
+          - os: windows-latest
+            name: "🪟 Windows (Git Bash)"
+            shell: bash
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Git Bash (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Git Bash comes pre-installed on GitHub Windows runners
+          echo "Using Git Bash on Windows"
+
+      - name: ℹ️  System Information
+        shell: ${{ matrix.shell }}
+        run: |
+          echo "🖥️  OS: $(uname -s)"
+          echo "🏗️  Architecture: $(uname -m)"
+          echo "📝 Shell: $0"
+          echo "🔧 Available tools:"
+          command -v curl && echo "  ✅ curl" || echo "  ❌ curl"
+          command -v wget && echo "  ✅ wget" || echo "  ❌ wget"
+          command -v tar && echo "  ✅ tar" || echo "  ❌ tar"
+          command -v jq && echo "  ✅ jq" || echo "  ❌ jq"
+
+      - name: 🧪 Test Help Command
+        shell: ${{ matrix.shell }}
+        run: |
+          chmod +x install.sh
+          ./install.sh --help
+
+      - name: 🌐 Test Platform Detection
+        shell: ${{ matrix.shell }}
+        run: |
+          echo "Testing platform detection..."
+          DRY_RUN=true VERBOSE=true ./install.sh 2>&1 | grep "Detecting platform"
+
+      - name: 📦 Test OSS Dry Run
+        shell: ${{ matrix.shell }}
+        run: |
+          echo "Testing OSS dry run..."
+          DRY_RUN=true ./install.sh latest oss
+
+      - name: 🏢 Test Secure Dry Run  
+        shell: ${{ matrix.shell }}
+        run: |
+          echo "Testing Secure dry run..."
+          DRY_RUN=true ./install.sh 5.0.0 secure
+
+      - name: ⚠️  Test Error Handling
+        shell: ${{ matrix.shell }}
+        run: |
+          echo "Testing error handling..."
+          if ./install.sh invalid.version 2>&1 | grep -q "Unknown argument"; then
+            echo "✅ Error handling works"
+          else
+            echo "❌ Error handling failed"
+            exit 1
+          fi
+
+      - name: 🚀 Test Actual Installation (OSS only)
+        shell: ${{ matrix.shell }}
+        run: |
+          echo "Testing actual OSS installation..."
+          ./install.sh latest oss
+          
+          # Verify installation
+          if command -v liquibase >/dev/null 2>&1; then
+            echo "✅ Liquibase installed successfully"
+            liquibase --version
+          else
+            echo "❌ Liquibase not found in PATH"
+            exit 1
+          fi
+
+  test-summary:
+    name: 📊 Cross-Platform Summary
+    runs-on: ubuntu-latest
+    needs: test-cross-platform
+    if: always()
+    
+    steps:
+      - name: 📈 Generate Summary
+        run: |
+          echo "## 🌐 Cross-Platform Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.test-cross-platform.result }}" == "success" ]; then
+            echo "✅ **All platforms**: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 🐧 **Ubuntu**: Native bash environment" >> $GITHUB_STEP_SUMMARY  
+            echo "✅ 🍎 **macOS**: Native zsh/bash environment" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 🪟 **Windows**: Git Bash environment" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some platforms failed**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Coverage**: Platform detection, OSS & Secure editions, Error handling, Actual installation" >> $GITHUB_STEP_SUMMARY
