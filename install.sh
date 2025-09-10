@@ -215,6 +215,8 @@ extract_asset_info() {
 # Detect platform and architecture
 detect_platform() {
     log_verbose "Detecting platform and architecture..."
+    log_verbose "uname -s output: $(uname -s)"
+    log_verbose "uname -m output: $(uname -m)"
     
     case "$(uname -s)" in
         Darwin) 
@@ -225,9 +227,9 @@ detect_platform() {
             OS="linux"
             log_verbose "Detected Linux"
             ;;
-        MINGW*|MSYS*|CYGWIN*|*NT*|*_NT*)
-            OS="linux"  # Treat Windows as Linux since Liquibase is Java-based
-            log_verbose "Detected Windows ($(uname -s)) - using Linux-compatible archives"
+        MINGW*|MSYS*|CYGWIN*|*NT*|*_NT-*|Windows_NT)
+            OS="windows"
+            log_verbose "Detected Windows ($(uname -s))"
             ;;
         *) 
             log_error "Unsupported operating system: $(uname -s)"
@@ -253,6 +255,9 @@ detect_platform() {
 
     PLATFORM="${OS}-${ARCH}"
     log_verbose "Platform: $PLATFORM"
+    
+    # Note: Liquibase uses universal Java archives, so platform detection
+    # is mainly for installation path and shell profile handling
 }
 
 # Get archive filename for the specified version and edition

@@ -54,18 +54,7 @@ jobs:
         shell: bash
         run: |
           echo "Testing platform detection..."
-          echo "Debug info:"
-          echo "  uname -s: $(uname -s)"
-          echo "  uname -m: $(uname -m)"
-          echo "Running platform detection test..."
-          if DRY_RUN=true VERBOSE=true ./install.sh 2>&1 | grep -q "Detecting platform"; then
-            echo "✅ Platform detection works"
-          else
-            echo "❌ Platform detection failed"
-            echo "Full output:"
-            DRY_RUN=true VERBOSE=true ./install.sh 2>&1 || true
-            exit 1
-          fi
+          DRY_RUN=true VERBOSE=true ./install.sh 2>&1 | grep "Detecting platform"
 
       - name: 📦 Test OSS Dry Run
         shell: bash
