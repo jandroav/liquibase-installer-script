@@ -541,7 +541,7 @@ install_liquibase() {
         return 1
     fi
     
-    # Create symlink in bin directory
+    # Create symlink/wrapper in bin directory
     local bin_link="$install_dir/bin/liquibase"
     if [ -L "$bin_link" ] || [ -f "$bin_link" ]; then
         rm -f "$bin_link"
@@ -553,10 +553,25 @@ install_liquibase() {
         return 1
     fi
     
-    if ! ln -s "$target_dir/liquibase" "$bin_link"; then
-        log_error "Failed to create symlink: $bin_link"
-        rm -rf "$temp_dir"
-        return 1
+    # On Windows, create a wrapper script instead of symlink to handle relative paths properly
+    if [ "$OS" = "windows" ]; then
+        log_verbose "Creating wrapper script for Windows"
+        cat > "$bin_link" << EOF
+#!/bin/bash
+# Liquibase wrapper script for Windows
+# This ensures relative paths work correctly
+cd "$target_dir"
+exec "$target_dir/liquibase" "\$@"
+EOF
+        chmod +x "$bin_link"
+    else
+        # On Unix systems, use symlink
+        log_verbose "Creating symlink for Unix system"
+        if ! ln -s "$target_dir/liquibase" "$bin_link"; then
+            log_error "Failed to create symlink: $bin_link"
+            rm -rf "$temp_dir"
+            return 1
+        fi
     fi
     
     # Make sure the liquibase executable is executable
