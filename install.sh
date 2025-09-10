@@ -459,14 +459,22 @@ install_liquibase() {
     log_verbose "Contents of extract directory:"
     ls -la "$extract_dir" >&2 || true
     
-    # Try to find directory containing liquibase executable
-    liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f -executable 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
-    log_verbose "Method 1 (executable search): Found '$liquibase_dir'"
+    # Check if the extract directory itself contains liquibase (flat archive structure)
+    if [ -f "$extract_dir/liquibase" ] || [ -f "$extract_dir/liquibase.bat" ] || ls "$extract_dir"/*.jar >/dev/null 2>&1; then
+        liquibase_dir="$extract_dir"
+        log_verbose "Method 1 (flat archive): Found liquibase files directly in extract directory: '$liquibase_dir'"
+    fi
+    
+    # If not flat, try to find directory containing liquibase executable
+    if [ -z "$liquibase_dir" ]; then
+        liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+        log_verbose "Method 2 (executable search): Found '$liquibase_dir'"
+    fi
     
     # If that fails, try to find any directory with "liquibase" in the name  
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
         liquibase_dir=$(find "$extract_dir" -maxdepth 2 -type d -name "*liquibase*" 2>/dev/null | head -1)
-        log_verbose "Method 2 (name search): Found '$liquibase_dir'"
+        log_verbose "Method 3 (name search): Found '$liquibase_dir'"
     fi
     
     # If that fails, try the first subdirectory that contains jar files or liquibase script
@@ -476,23 +484,17 @@ install_liquibase() {
                 log_verbose "Checking subdirectory: $dir"
                 if [ -f "$dir/liquibase" ] || [ -f "$dir/liquibase.bat" ] || ls "$dir"/*.jar >/dev/null 2>&1; then
                     liquibase_dir="$dir"
-                    log_verbose "Method 3 (content search): Found '$liquibase_dir'"
+                    log_verbose "Method 4 (content search): Found '$liquibase_dir'"
                     break
                 fi
             fi
         done
     fi
     
-    # Last resort: first subdirectory (but NOT the extract dir itself)
+    # Last resort: first subdirectory
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
         liquibase_dir=$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
-        log_verbose "Method 4 (first subdir): Found '$liquibase_dir'"
-        
-        # Critical check: ensure this is not the extract directory itself
-        if [ "$liquibase_dir" = "$extract_dir" ]; then
-            log_verbose "Warning: Found directory is the extract dir itself, clearing"
-            liquibase_dir=""
-        fi
+        log_verbose "Method 5 (first subdir): Found '$liquibase_dir'"
     fi
     
     # Validate that we found a proper liquibase directory
@@ -693,16 +695,42 @@ verify_installation() {
             log_verbose "Found file at $location, checking if executable"
             if [ -x "$location" ]; then
                 log_verbose "File is executable, testing version command"
+                
+                # Add debugging for Windows symlink issues
+                if [ -L "$location" ]; then
+                    local target
+                    target=$(readlink "$location")
+                    log_verbose "Symlink target: $target"
+                    if [ -f "$target" ]; then
+                        log_verbose "Symlink target exists and is a file"
+                        if [ -x "$target" ]; then
+                            log_verbose "Symlink target is executable"
+                        else
+                            log_verbose "Symlink target is not executable"
+                        fi
+                    else
+                        log_verbose "Symlink target does not exist or is not a file"
+                    fi
+                fi
+                
+                # Try to run version command with detailed error output
                 local installed_version
-                installed_version=$("$location" --version 2>/dev/null | head -1)
-                if [ -n "$installed_version" ]; then
+                local version_output
+                local version_error
+                version_output=$("$location" --version 2>&1) 
+                local exit_code=$?
+                
+                log_verbose "Version command exit code: $exit_code"
+                if [ $exit_code -eq 0 ]; then
+                    installed_version=$(echo "$version_output" | head -1)
                     log_success "Liquibase installed successfully at: $location"
                     log_success "Version: $installed_version"
                     log_info "To use liquibase command globally, restart your terminal or run:"
                     log_info "  export PATH=\"$(dirname "$location"):\$PATH\""
                     return 0
                 else
-                    log_verbose "Version command failed for $location"
+                    log_verbose "Version command failed for $location with exit code $exit_code"
+                    log_verbose "Version command output: $version_output"
                 fi
             else
                 log_verbose "File exists but is not executable: $location"
