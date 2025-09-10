@@ -278,9 +278,7 @@ get_latest_version() {
     log_verbose "Fetching latest version from GitHub API..."
     
     local api_response
-    api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/latest")
-    
-    if [ $? -ne 0 ] || [ -z "$api_response" ]; then
+    if ! api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/latest") || [ -z "$api_response" ]; then
         log_error "Failed to fetch latest version from GitHub API"
         return 1
     fi
@@ -347,9 +345,7 @@ validate_version_exists() {
     if [ "$edition" = "oss" ]; then
         # For OSS, check GitHub releases
         local api_response
-        api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/tags/v$version" 2>/dev/null)
-        
-        if [ $? -ne 0 ]; then
+        if ! api_response=$(download_file "https://api.github.com/repos/liquibase/liquibase/releases/tags/v$version" 2>/dev/null); then
             log_error "OSS version $version not found in GitHub releases"
             return 1
         fi
@@ -397,9 +393,7 @@ install_liquibase() {
     
     # Download the archive
     log_info "Downloading $archive_name..."
-    download_and_verify "$download_url" "$archive_name" "" "$archive_path"
-    
-    if [ $? -ne 0 ]; then
+    if ! download_and_verify "$download_url" "$archive_name" "" "$archive_path"; then
         rm -rf "$temp_dir"
         return 1
     fi
@@ -419,9 +413,7 @@ install_liquibase() {
     local extract_dir="$temp_dir/extract"
     mkdir -p "$extract_dir"
     
-    tar -xzf "$archive_path" -C "$extract_dir"
-    
-    if [ $? -ne 0 ]; then
+    if ! tar -xzf "$archive_path" -C "$extract_dir"; then
         log_error "Failed to extract $archive_name"
         rm -rf "$temp_dir"
         return 1
@@ -480,9 +472,7 @@ download_and_verify() {
     local output_path="$4"
     
     log_verbose "Downloading $filename..."
-    download_file "$url" "$output_path"
-    
-    if [ $? -ne 0 ]; then
+    if ! download_file "$url" "$output_path"; then
         log_error "Failed to download $filename"
         return 1
     fi
@@ -546,9 +536,11 @@ add_to_path() {
         
         # Check if PATH export already exists
         if ! grep -q "export PATH.*$dir" "$shell_profile" 2>/dev/null; then
-            echo "" >> "$shell_profile"
-            echo "# Added by Liquibase installer" >> "$shell_profile"
-            echo "export PATH=\"$dir:\$PATH\"" >> "$shell_profile"
+            {
+                echo ""
+                echo "# Added by Liquibase installer"
+                echo "export PATH=\"$dir:\$PATH\""
+            } >> "$shell_profile"
             log_info "Added $dir to PATH in $shell_profile"
             log_info "Run 'source $shell_profile' or start a new terminal session"
         else
@@ -612,19 +604,16 @@ main() {
     
     # Determine version to install
     if [ "$VERSION_ARG" = "latest" ]; then
-        VERSION=$(get_latest_version)
-        if [ $? -ne 0 ] || [ -z "$VERSION" ]; then
+        if ! VERSION=$(get_latest_version) || [ -z "$VERSION" ]; then
             exit 1
         fi
     else
         VERSION="$VERSION_ARG"
-        validate_version "$VERSION"
-        if [ $? -ne 0 ]; then
+        if ! validate_version "$VERSION"; then
             exit 1
         fi
         
-        validate_version_exists "$VERSION" "$EDITION_ARG"
-        if [ $? -ne 0 ]; then
+        if ! validate_version_exists "$VERSION" "$EDITION_ARG"; then
             exit 1
         fi
     fi
@@ -638,9 +627,7 @@ main() {
     fi
     
     # Verify installation
-    verify_installation
-    
-    if [ $? -eq 0 ] && [ "$DRY_RUN" = "false" ]; then
+    if verify_installation && [ "$DRY_RUN" = "false" ]; then
         echo ""
         log_success "🎉 Liquibase installation completed successfully!"
         echo ""

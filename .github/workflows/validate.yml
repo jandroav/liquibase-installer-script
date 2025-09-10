@@ -2,9 +2,9 @@ name: 🔍 Validate Installer Script
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
   schedule:
     # Run validation daily at 2 AM UTC to catch upstream changes
     - cron: '0 2 * * *'
