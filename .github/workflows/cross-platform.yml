@@ -113,13 +113,33 @@ jobs:
             fi
           fi
           
-          # Verify installation  
+          # Verify installation - check direct paths since PATH may not persist on some platforms
+          LIQUIBASE_FOUND=false
+          
+          # First try PATH (works on most platforms)
           if command -v liquibase >/dev/null 2>&1; then
-            echo "✅ Liquibase installed successfully"
+            echo "✅ Liquibase found in PATH"
             liquibase --version
+            LIQUIBASE_FOUND=true
           else
-            echo "❌ Liquibase not found in PATH"
+            echo "ℹ️  Liquibase not found in PATH (expected on some platforms)"
+            
+            # Try direct installation paths
+            for location in "/usr/local/bin/liquibase" "$HOME/.local/bin/liquibase"; do
+              if [ -x "$location" ]; then
+                echo "✅ Liquibase found at: $location"
+                "$location" --version
+                LIQUIBASE_FOUND=true
+                break
+              fi
+            done
+          fi
+          
+          if [ "$LIQUIBASE_FOUND" = "false" ]; then
+            echo "❌ Liquibase not found in any expected location"
             exit 1
+          else
+            echo "✅ Liquibase installation verified successfully"
           fi
 
   test-summary:
