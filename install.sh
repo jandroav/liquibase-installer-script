@@ -169,17 +169,32 @@ download_file() {
     
     log_verbose "Downloading: $url"
     
+    # Add GitHub token if available and URL is GitHub API
+    local auth_args=()
+    if [[ "$url" == *"api.github.com"* ]] && [ -n "$GITHUB_TOKEN" ]; then
+        auth_args=(-H "Authorization: token $GITHUB_TOKEN")
+        log_verbose "Using GitHub token for API authentication"
+    fi
+    
     if [ "$DOWNLOADER" = "curl" ]; then
         if [ -n "$output" ]; then
-            curl -fsSL -o "$output" "$url"
+            curl -fsSL "${auth_args[@]}" -o "$output" "$url"
         else
-            curl -fsSL "$url"
+            curl -fsSL "${auth_args[@]}" "$url"
         fi
     elif [ "$DOWNLOADER" = "wget" ]; then
         if [ -n "$output" ]; then
-            wget -q -O "$output" "$url"
+            if [ ${#auth_args[@]} -gt 0 ]; then
+                wget --header="Authorization: token $GITHUB_TOKEN" -q -O "$output" "$url"
+            else
+                wget -q -O "$output" "$url"
+            fi
         else
-            wget -q -O - "$url"
+            if [ ${#auth_args[@]} -gt 0 ]; then
+                wget --header="Authorization: token $GITHUB_TOKEN" -q -O - "$url"
+            else
+                wget -q -O - "$url"
+            fi
         fi
     else
         log_error "No downloader available"
