@@ -416,7 +416,7 @@ install_liquibase() {
     local install_dir
     
     # Check if we can install to system-wide location
-    if ([ -w "/usr/local" ] || [ "$(id -u)" -eq 0 ]) && [ -d "/usr/local" ]; then
+    if { [ -w "/usr/local" ] || [ "$(id -u)" -eq 0 ]; } && [ -d "/usr/local" ]; then
         install_dir="/usr/local"
         log_verbose "Installing to system-wide location: $install_dir"
     else
