@@ -72,12 +72,13 @@ jobs:
         shell: bash
         run: |
           echo "Testing error handling..."
-          if ./install.sh invalid.version 2>&1 | grep -q "Unknown argument:"; then
+          OUTPUT=$(./install.sh invalid.version 2>&1 || true)
+          echo "Captured output:"
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "Unknown argument"; then
             echo "✅ Error handling works"
           else
-            echo "❌ Error handling failed"
-            echo "Actual output:"
-            ./install.sh invalid.version 2>&1 || true
+            echo "❌ Error handling failed - pattern not found"
             exit 1
           fi
 

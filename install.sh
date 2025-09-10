@@ -227,7 +227,7 @@ detect_platform() {
             OS="linux"
             log_verbose "Detected Linux"
             ;;
-        MINGW*|MSYS*|CYGWIN*|*NT*|*_NT-*|Windows_NT)
+        MINGW*|MSYS*|CYGWIN*|Windows_NT|*_NT-*|*NT*)
             OS="windows"
             log_verbose "Detected Windows ($(uname -s))"
             ;;
