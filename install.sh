@@ -441,16 +441,25 @@ install_liquibase() {
     local liquibase_dir
     
     # Try to find directory containing liquibase executable
-    liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f -executable | head -1 | xargs dirname 2>/dev/null)
+    liquibase_dir=$(find "$extract_dir" -name "liquibase" -type f | head -1 | xargs dirname 2>/dev/null)
     
-    # If that fails, try to find any directory with "liquibase" in the name
+    # If that fails, try to find any directory with "liquibase" in the name  
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
         liquibase_dir=$(find "$extract_dir" -maxdepth 2 -type d -name "*liquibase*" | head -1)
     fi
     
-    # If that fails, try the first subdirectory
+    # If that fails, try the first subdirectory (skip . and ..)
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
-        liquibase_dir=$(find "$extract_dir" -maxdepth 1 -type d ! -name "." ! -name ".." | head -1)
+        liquibase_dir=$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
+    fi
+    
+    # Validate that we found a proper liquibase directory
+    if [ -n "$liquibase_dir" ] && [ -d "$liquibase_dir" ]; then
+        # Check if this directory contains liquibase files
+        if ! ([ -f "$liquibase_dir/liquibase" ] || [ -f "$liquibase_dir/liquibase.bat" ] || ls "$liquibase_dir"/*.jar >/dev/null 2>&1); then
+            log_verbose "Directory $liquibase_dir doesn't look like a proper Liquibase installation"
+            liquibase_dir=""
+        fi
     fi
     
     if [ -z "$liquibase_dir" ] || [ ! -d "$liquibase_dir" ]; then
