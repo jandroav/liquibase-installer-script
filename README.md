@@ -264,15 +264,29 @@ export PATH="/usr/local/bin:$PATH"
 
 ### 🎯 Intelligent Archive Extraction
 
-The installer uses a three-tier approach to handle various Liquibase archive formats:
+The installer uses a multi-tier approach to handle various Liquibase archive formats:
 
-1. **🔍 Executable Detection**: Locates the `liquibase` executable within the archive
-2. **📁 Directory Pattern Matching**: Searches for directories containing "liquibase" 
-3. **🛡️ Fallback Extraction**: Uses the first valid directory found
+1. **📦 Flat Archive Detection**: Checks if liquibase files are directly in extract directory
+2. **🔍 Executable Detection**: Locates the `liquibase` executable within subdirectories
+3. **📁 Directory Pattern Matching**: Searches for directories containing "liquibase"
+4. **🛡️ Content Validation**: Verifies directories contain proper Liquibase files
+5. **🔄 Fallback Extraction**: Uses the first valid directory found
 
-This ensures compatibility with different Liquibase versions and archive structures.
+This handles both flat archives (files directly extracted) and nested archives (files in subdirectories).
 
-### 🌐 Robust Platform Detection
+### 🌐 Cross-Platform Linking Strategy
+
+**Unix Systems (macOS, Linux)**:
+- Uses native symbolic links for optimal performance
+- Preserves file permissions and metadata
+- Standard Unix behavior for command-line tools
+
+**Windows Systems**:
+- Creates wrapper scripts instead of symlinks to handle relative path resolution
+- Ensures JAR files are found correctly regardless of execution context
+- Maintains full compatibility with Git Bash, MSYS2, Cygwin, and WSL
+
+### 🛡️ Platform Detection
 
 Enhanced platform detection handles various environments:
 - **Windows**: MINGW, MSYS2, Cygwin, Git Bash, WSL
