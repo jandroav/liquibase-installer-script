@@ -18,6 +18,7 @@ curl -fsSL https://get.liquibase.com | bash
 - 🔒 **Secure**: HTTPS downloads with SHA256 verification when available
 - 🎯 **Version Flexible**: Install latest or specific versions
 - 🔄 **Cross-Platform**: Works on Linux, macOS, and Windows (via WSL/Git Bash)
+- ⚙️ **Smart Configuration**: Automatically configures `LIQUIBASE_HOME` and `PATH` environment variables
 - 🧪 **Testing**: Built-in dry-run mode and comprehensive CI/CD validation
 
 ## 📖 Usage
@@ -116,7 +117,7 @@ The installer uses **native tar.gz downloads** for all installations:
 2. **Verify**: SHA256 checksum verification (when available)
 3. **Extract**: Extracts to `/usr/local/lib/liquibase` (or `~/.local/lib/liquibase`)
 4. **Link**: Creates symlink in `/usr/local/bin/liquibase` (or `~/.local/bin/liquibase`)
-5. **Configure**: Adds to PATH and updates shell profiles
+5. **Configure**: Automatically sets `LIQUIBASE_HOME` and adds to `PATH` in shell profiles
 6. **Verify**: Tests installation with `liquibase --version`
 
 ### 🎯 Edition Selection Guide
@@ -152,6 +153,64 @@ The installer uses **native tar.gz downloads** for all installations:
 | Windows | 32-bit | ✅ Supported | Uses Java-compatible x64 archives |
 
 **Platform Detection**: Automatically handles various system types including MINGW, MSYS2, Cygwin, and other Unix-like environments on Windows.
+
+## ⚙️ Environment Variable Configuration
+
+The installer automatically configures your environment for seamless Liquibase usage:
+
+### 🔧 What Gets Configured
+
+- **`PATH`**: Adds Liquibase binary directory to your PATH
+- **`LIQUIBASE_HOME`**: Sets the Liquibase installation directory (crucial for proper operation)
+
+### 🌐 Cross-Platform Shell Support
+
+**🐧 Linux & 🍎 macOS**:
+- **Zsh**: Updates `~/.zshrc` (default on modern macOS)
+- **Bash**: Updates `~/.bashrc` (Linux) or `~/.bash_profile` (macOS)
+- **Fallback**: Uses `~/.profile` for other shells
+
+**🪟 Windows**:
+- **Git Bash/WSL/MSYS2**: Uses Unix-style profiles (`.bashrc`, `.bash_profile`)
+- **Command Prompt**: Provides `setx` commands for manual setup
+- **PowerShell**: Provides PowerShell profile commands for manual setup
+
+### 📝 Manual Configuration (if needed)
+
+If automatic configuration fails, add these to your shell profile:
+
+```bash
+# Unix-style shells (bash, zsh, etc.)
+export PATH="/usr/local/bin:$PATH"  # or ~/.local/bin
+export LIQUIBASE_HOME="/usr/local/lib/liquibase"  # or ~/.local/lib/liquibase
+
+# Apply changes
+source ~/.bashrc  # or ~/.zshrc
+```
+
+**Windows Command Prompt**:
+```cmd
+setx PATH "C:\Users\%USERNAME%\.local\bin;%PATH%"
+setx LIQUIBASE_HOME "C:\Users\%USERNAME%\.local\lib\liquibase"
+```
+
+**Windows PowerShell**:
+```powershell
+$env:PATH = "$env:USERPROFILE\.local\bin;" + $env:PATH
+$env:LIQUIBASE_HOME = "$env:USERPROFILE\.local\lib\liquibase"
+```
+
+### 🔍 Troubleshooting Environment Issues
+
+```bash
+# Check if LIQUIBASE_HOME is set correctly
+echo $LIQUIBASE_HOME
+
+# Verify Liquibase can find its installation
+liquibase --version | grep "Liquibase Home"
+
+# Should show your local installation, not a package manager version
+```
 
 ## 📚 Command Reference
 
@@ -246,8 +305,25 @@ source ~/.bashrc
 # or
 source ~/.zshrc
 
-# Or manually add to PATH
-export PATH="/usr/local/bin:$PATH"
+# Or manually add to PATH and LIQUIBASE_HOME
+export PATH="/usr/local/bin:$PATH"  # or ~/.local/bin
+export LIQUIBASE_HOME="/usr/local/lib/liquibase"  # or ~/.local/lib/liquibase
+```
+
+#### 🏠 Wrong Liquibase Installation Being Used
+
+If you have multiple Liquibase installations (e.g., via Homebrew), check which one is active:
+
+```bash
+# Check current installation
+liquibase --version | grep "Liquibase Home"
+
+# Should show local installation, not package manager
+# Expected: /usr/local/lib/liquibase or ~/.local/lib/liquibase
+# Not: /opt/homebrew/Cellar/liquibase/... or /usr/share/liquibase
+
+# Fix by setting LIQUIBASE_HOME explicitly
+export LIQUIBASE_HOME="/usr/local/lib/liquibase"  # or ~/.local/lib/liquibase
 ```
 
 #### 🔐 Checksum Verification Failed

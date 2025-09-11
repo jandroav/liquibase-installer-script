@@ -412,6 +412,15 @@ install_liquibase() {
     if [ "$DRY_RUN" = "true" ]; then
         log_info "[DRY RUN] Would download: $download_url"
         log_info "[DRY RUN] Would extract to: /usr/local (or ~/.local)"
+        
+        # Show what PATH setup would do
+        local install_dir
+        if { [ -w "/usr/local" ] || [ "$(id -u)" -eq 0 ]; } && [ -d "/usr/local" ]; then
+            install_dir="/usr/local"
+        else
+            install_dir="$HOME/.local"
+        fi
+        add_to_path "$install_dir/bin"
         return 0
     fi
     
@@ -631,7 +640,7 @@ download_and_verify() {
     return 0
 }
 
-# Add to PATH and set LIQUIBASE_HOME
+# Add to PATH and set LIQUIBASE_HOME (cross-platform)
 add_to_path() {
     local dir="$1"
     
@@ -646,86 +655,138 @@ add_to_path() {
     local liquibase_home
     liquibase_home="$(dirname "$dir")/lib/liquibase"
     
-    # Determine which shell profile to update
-    local shell_profile=""
-    local shell_name=""
-    
-    # Check current shell first
-    if [ -n "$ZSH_VERSION" ] || [[ "$SHELL" == *"zsh"* ]]; then
-        shell_profile="$HOME/.zshrc"
-        shell_name="zsh"
-    elif [ -n "$BASH_VERSION" ] || [[ "$SHELL" == *"bash"* ]]; then
-        if [ -f "$HOME/.bashrc" ]; then
-            shell_profile="$HOME/.bashrc"
-        elif [ -f "$HOME/.bash_profile" ]; then
-            shell_profile="$HOME/.bash_profile"
+    # Handle Windows-specific environment setup
+    if [ "$OS" = "windows" ]; then
+        log_verbose "Configuring Windows environment variables"
+        
+        # For Windows, we'll try to detect the shell environment
+        local windows_shell_profile=""
+        
+        # Check for Git Bash, MSYS2, or similar Unix-like environments on Windows
+        if [ -n "$HOME" ] && [ -d "$HOME" ]; then
+            # Try common shell profiles in order of preference
+            if [ -f "$HOME/.bashrc" ]; then
+                windows_shell_profile="$HOME/.bashrc"
+                log_verbose "Using .bashrc for Windows environment"
+            elif [ -f "$HOME/.bash_profile" ]; then
+                windows_shell_profile="$HOME/.bash_profile"
+                log_verbose "Using .bash_profile for Windows environment"
+            elif [ -f "$HOME/.profile" ]; then
+                windows_shell_profile="$HOME/.profile"
+                log_verbose "Using .profile for Windows environment"
+            fi
         fi
-        shell_name="bash"
-    fi
-    
-    # Fallback to detecting shell profiles
-    if [ -z "$shell_profile" ]; then
-        if [ -f "$HOME/.zshrc" ]; then
+        
+        if [ -n "$windows_shell_profile" ]; then
+            # Use Unix-style profile for Git Bash/MSYS2/WSL
+            setup_unix_profile "$dir" "$liquibase_home" "$windows_shell_profile" "windows-bash"
+        else
+            # Fallback for pure Windows environments
+            log_warn "Could not detect Unix-like shell environment on Windows"
+            log_info "For Windows Command Prompt, manually set environment variables:"
+            log_info "  setx PATH \"$dir;%PATH%\""
+            log_info "  setx LIQUIBASE_HOME \"$liquibase_home\""
+            log_info ""
+            log_info "For PowerShell, add to your profile (\$PROFILE):"
+            log_info "  \$env:PATH = \"$dir;\" + \$env:PATH"
+            log_info "  \$env:LIQUIBASE_HOME = \"$liquibase_home\""
+        fi
+    else
+        # Unix-like systems (Linux, macOS, etc.)
+        local shell_profile=""
+        local shell_name=""
+        
+        # Detect current shell and preferred profile
+        if [ -n "$ZSH_VERSION" ] || [[ "${SHELL:-}" == *"zsh"* ]]; then
             shell_profile="$HOME/.zshrc"
             shell_name="zsh"
-        elif [ -f "$HOME/.bashrc" ]; then
-            shell_profile="$HOME/.bashrc"
+        elif [ -n "$BASH_VERSION" ] || [[ "${SHELL:-}" == *"bash"* ]]; then
+            # For bash, prefer .bashrc on Linux, .bash_profile on macOS
+            if [ "$OS" = "darwin" ] && [ -f "$HOME/.bash_profile" ]; then
+                shell_profile="$HOME/.bash_profile"
+            elif [ -f "$HOME/.bashrc" ]; then
+                shell_profile="$HOME/.bashrc"
+            elif [ -f "$HOME/.bash_profile" ]; then
+                shell_profile="$HOME/.bash_profile"
+            fi
             shell_name="bash"
-        elif [ -f "$HOME/.bash_profile" ]; then
-            shell_profile="$HOME/.bash_profile"
-            shell_name="bash"
-        elif [ -f "$HOME/.profile" ]; then
-            shell_profile="$HOME/.profile"
-            shell_name="generic"
+        fi
+        
+        # Fallback detection by checking which profile files exist
+        if [ -z "$shell_profile" ]; then
+            if [ -f "$HOME/.zshrc" ]; then
+                shell_profile="$HOME/.zshrc"
+                shell_name="zsh"
+            elif [ -f "$HOME/.bashrc" ]; then
+                shell_profile="$HOME/.bashrc"
+                shell_name="bash"
+            elif [ -f "$HOME/.bash_profile" ]; then
+                shell_profile="$HOME/.bash_profile"
+                shell_name="bash"
+            elif [ -f "$HOME/.profile" ]; then
+                shell_profile="$HOME/.profile"
+                shell_name="sh"
+            fi
+        fi
+        
+        if [ -n "$shell_profile" ]; then
+            log_verbose "Using $shell_profile for $shell_name shell on $OS"
+            setup_unix_profile "$dir" "$liquibase_home" "$shell_profile" "$shell_name"
+        else
+            log_warn "Could not determine shell profile to update"
+            log_info "Please manually add the following to your shell profile:"
+            log_info "  export PATH=\"$dir:\$PATH\""
+            log_info "  export LIQUIBASE_HOME=\"$liquibase_home\""
         fi
     fi
+}
+
+# Helper function to set up Unix-style shell profiles
+setup_unix_profile() {
+    local dir="$1"
+    local liquibase_home="$2"
+    local shell_profile="$3"
+    local shell_name="$4"
     
-    if [ -n "$shell_profile" ]; then
-        log_verbose "Updating $shell_profile for $shell_name shell"
+    log_verbose "Updating $shell_profile for $shell_name"
+    
+    # Check if our Liquibase block already exists
+    if ! grep -q "# Added by Liquibase installer" "$shell_profile" 2>/dev/null; then
+        {
+            echo ""
+            echo "# Added by Liquibase installer"
+            echo "export PATH=\"$dir:\$PATH\""
+            echo "export LIQUIBASE_HOME=\"$liquibase_home\""
+        } >> "$shell_profile"
+        log_info "Added $dir to PATH and set LIQUIBASE_HOME in $shell_profile"
+        log_info "Run 'source $shell_profile' or start a new terminal session"
+    else
+        # Check if PATH and LIQUIBASE_HOME are both set correctly
+        local path_exists
+        local liquibase_home_exists
+        path_exists=$(grep -c "export PATH.*$(echo "$dir" | sed 's/[[\.*^$()+?{|]/\\&/g')" "$shell_profile" 2>/dev/null || echo "0")
+        liquibase_home_exists=$(grep -c "export LIQUIBASE_HOME.*$(echo "$liquibase_home" | sed 's/[[\.*^$()+?{|]/\\&/g')" "$shell_profile" 2>/dev/null || echo "0")
         
-        # Check if our Liquibase block already exists
-        if ! grep -q "# Added by Liquibase installer" "$shell_profile" 2>/dev/null; then
+        if [ "$path_exists" -eq 0 ] || [ "$liquibase_home_exists" -eq 0 ]; then
+            # Update the existing block
+            local temp_file
+            temp_file=$(mktemp)
+            
+            # Remove old Liquibase installer block and add new one
+            sed '/# Added by Liquibase installer/,/^$/d' "$shell_profile" > "$temp_file"
             {
                 echo ""
                 echo "# Added by Liquibase installer"
                 echo "export PATH=\"$dir:\$PATH\""
                 echo "export LIQUIBASE_HOME=\"$liquibase_home\""
-            } >> "$shell_profile"
-            log_info "Added $dir to PATH and set LIQUIBASE_HOME in $shell_profile"
+            } >> "$temp_file"
+            
+            mv "$temp_file" "$shell_profile"
+            log_info "Updated Liquibase configuration in $shell_profile"
             log_info "Run 'source $shell_profile' or start a new terminal session"
         else
-            # Check if PATH and LIQUIBASE_HOME are both set correctly
-            local path_exists
-            local liquibase_home_exists
-            path_exists=$(grep -c "export PATH.*$dir" "$shell_profile" 2>/dev/null || echo "0")
-            liquibase_home_exists=$(grep -c "export LIQUIBASE_HOME.*$liquibase_home" "$shell_profile" 2>/dev/null || echo "0")
-            
-            if [ "$path_exists" -eq 0 ] || [ "$liquibase_home_exists" -eq 0 ]; then
-                # Update the existing block
-                local temp_file
-                temp_file=$(mktemp)
-                
-                # Remove old Liquibase installer block and add new one
-                sed '/# Added by Liquibase installer/,/^$/d' "$shell_profile" > "$temp_file"
-                {
-                    echo ""
-                    echo "# Added by Liquibase installer"
-                    echo "export PATH=\"$dir:\$PATH\""
-                    echo "export LIQUIBASE_HOME=\"$liquibase_home\""
-                } >> "$temp_file"
-                
-                mv "$temp_file" "$shell_profile"
-                log_info "Updated Liquibase configuration in $shell_profile"
-                log_info "Run 'source $shell_profile' or start a new terminal session"
-            else
-                log_verbose "PATH and LIQUIBASE_HOME already correctly set in $shell_profile"
-            fi
+            log_verbose "PATH and LIQUIBASE_HOME already correctly set in $shell_profile"
         fi
-    else
-        log_warn "Could not determine shell profile to update"
-        log_info "Please manually add the following to your shell profile:"
-        log_info "  export PATH=\"$dir:\$PATH\""
-        log_info "  export LIQUIBASE_HOME=\"$liquibase_home\""
     fi
 }
 
