@@ -583,10 +583,8 @@ EOF
     
     log_success "Liquibase $edition $version installed to $target_dir"
     
-    # Add to PATH if necessary
-    if ! echo "$PATH" | grep -q "$install_dir/bin"; then
-        add_to_path "$install_dir/bin"
-    fi
+    # Add to PATH and set LIQUIBASE_HOME
+    add_to_path "$install_dir/bin"
     
     return 0
 }
@@ -633,49 +631,101 @@ download_and_verify() {
     return 0
 }
 
-# Legacy function removed - now using install_liquibase()
+# Add to PATH and set LIQUIBASE_HOME
 add_to_path() {
     local dir="$1"
     
     log_info "Adding $dir to PATH..."
     
     if [ "$DRY_RUN" = "true" ]; then
-        log_info "[DRY RUN] Would add $dir to PATH in shell profile"
+        log_info "[DRY RUN] Would add $dir to PATH and set LIQUIBASE_HOME in shell profile"
         return 0
     fi
     
+    # Determine LIQUIBASE_HOME based on the bin directory
+    local liquibase_home
+    liquibase_home="$(dirname "$dir")/lib/liquibase"
+    
     # Determine which shell profile to update
     local shell_profile=""
-    if [ -n "$BASH_VERSION" ]; then
+    local shell_name=""
+    
+    # Check current shell first
+    if [ -n "$ZSH_VERSION" ] || [[ "$SHELL" == *"zsh"* ]]; then
+        shell_profile="$HOME/.zshrc"
+        shell_name="zsh"
+    elif [ -n "$BASH_VERSION" ] || [[ "$SHELL" == *"bash"* ]]; then
         if [ -f "$HOME/.bashrc" ]; then
             shell_profile="$HOME/.bashrc"
         elif [ -f "$HOME/.bash_profile" ]; then
             shell_profile="$HOME/.bash_profile"
         fi
-    elif [ -n "$ZSH_VERSION" ]; then
-        shell_profile="$HOME/.zshrc"
-    elif [ -f "$HOME/.profile" ]; then
-        shell_profile="$HOME/.profile"
+        shell_name="bash"
+    fi
+    
+    # Fallback to detecting shell profiles
+    if [ -z "$shell_profile" ]; then
+        if [ -f "$HOME/.zshrc" ]; then
+            shell_profile="$HOME/.zshrc"
+            shell_name="zsh"
+        elif [ -f "$HOME/.bashrc" ]; then
+            shell_profile="$HOME/.bashrc"
+            shell_name="bash"
+        elif [ -f "$HOME/.bash_profile" ]; then
+            shell_profile="$HOME/.bash_profile"
+            shell_name="bash"
+        elif [ -f "$HOME/.profile" ]; then
+            shell_profile="$HOME/.profile"
+            shell_name="generic"
+        fi
     fi
     
     if [ -n "$shell_profile" ]; then
-        log_verbose "Updating $shell_profile"
+        log_verbose "Updating $shell_profile for $shell_name shell"
         
-        # Check if PATH export already exists
-        if ! grep -q "export PATH.*$dir" "$shell_profile" 2>/dev/null; then
+        # Check if our Liquibase block already exists
+        if ! grep -q "# Added by Liquibase installer" "$shell_profile" 2>/dev/null; then
             {
                 echo ""
                 echo "# Added by Liquibase installer"
                 echo "export PATH=\"$dir:\$PATH\""
+                echo "export LIQUIBASE_HOME=\"$liquibase_home\""
             } >> "$shell_profile"
-            log_info "Added $dir to PATH in $shell_profile"
+            log_info "Added $dir to PATH and set LIQUIBASE_HOME in $shell_profile"
             log_info "Run 'source $shell_profile' or start a new terminal session"
         else
-            log_verbose "PATH already contains $dir in $shell_profile"
+            # Check if PATH and LIQUIBASE_HOME are both set correctly
+            local path_exists
+            local liquibase_home_exists
+            path_exists=$(grep -c "export PATH.*$dir" "$shell_profile" 2>/dev/null || echo "0")
+            liquibase_home_exists=$(grep -c "export LIQUIBASE_HOME.*$liquibase_home" "$shell_profile" 2>/dev/null || echo "0")
+            
+            if [ "$path_exists" -eq 0 ] || [ "$liquibase_home_exists" -eq 0 ]; then
+                # Update the existing block
+                local temp_file
+                temp_file=$(mktemp)
+                
+                # Remove old Liquibase installer block and add new one
+                sed '/# Added by Liquibase installer/,/^$/d' "$shell_profile" > "$temp_file"
+                {
+                    echo ""
+                    echo "# Added by Liquibase installer"
+                    echo "export PATH=\"$dir:\$PATH\""
+                    echo "export LIQUIBASE_HOME=\"$liquibase_home\""
+                } >> "$temp_file"
+                
+                mv "$temp_file" "$shell_profile"
+                log_info "Updated Liquibase configuration in $shell_profile"
+                log_info "Run 'source $shell_profile' or start a new terminal session"
+            else
+                log_verbose "PATH and LIQUIBASE_HOME already correctly set in $shell_profile"
+            fi
         fi
     else
         log_warn "Could not determine shell profile to update"
-        log_info "Please manually add $dir to your PATH"
+        log_info "Please manually add the following to your shell profile:"
+        log_info "  export PATH=\"$dir:\$PATH\""
+        log_info "  export LIQUIBASE_HOME=\"$liquibase_home\""
     fi
 }
 
