@@ -764,8 +764,10 @@ setup_unix_profile() {
         # Check if PATH and LIQUIBASE_HOME are both set correctly
         local path_exists
         local liquibase_home_exists
-        path_exists=$(grep -c "export PATH.*$(echo "$dir" | sed 's/[[\.*^$()+?{|]/\\&/g')" "$shell_profile" 2>/dev/null || echo "0")
-        liquibase_home_exists=$(grep -c "export LIQUIBASE_HOME.*$(echo "$liquibase_home" | sed 's/[[\.*^$()+?{|]/\\&/g')" "$shell_profile" 2>/dev/null || echo "0")
+        local escaped_dir="${dir//\//\\/}"  # Escape forward slashes for grep
+        local escaped_home="${liquibase_home//\//\\/}"  # Escape forward slashes for grep
+        path_exists=$(grep -c "export PATH.*${escaped_dir}" "$shell_profile" 2>/dev/null || echo "0")
+        liquibase_home_exists=$(grep -c "export LIQUIBASE_HOME.*${escaped_home}" "$shell_profile" 2>/dev/null || echo "0")
         
         if [ "$path_exists" -eq 0 ] || [ "$liquibase_home_exists" -eq 0 ]; then
             # Update the existing block
